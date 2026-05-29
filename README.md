@@ -1,3 +1,40 @@
+<style>
+  /* 1. Neutralize the loud teal/blue gradient header */
+  .page-header {
+    background-image: linear-gradient(120deg, #1e293b, #0f172a) !important;
+    background-color: #0f172a !important;
+    padding: 3rem 2rem !important;
+  }
+  
+  /* 2. Style the main action buttons to look dark/professional */
+  .btn {
+    color: #ffffff !important;
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    border-radius: 4px !important;
+    font-weight: 500 !important;
+  }
+  .btn:hover {
+    background-color: #475569 !important;
+    border-color: #64748b !important;
+  }
+  
+  /* 3. Style text links so they aren't neon green */
+  main a, .main-content a {
+    color: #2563eb !important;
+    text-decoration: none;
+  }
+  main a:hover, .main-content a:hover {
+    text-decoration: underline;
+  }
+  
+  /* 4. Center and clean up the header text layout */
+  .project-name, .project-tagline {
+    color: #fff !important;
+    text-shadow: none !important;
+  }
+</style>
+
 # JDP Security Research Series
 ## Vulnerability Disclosures & Technical White Papers (2026)
 
