@@ -7,13 +7,11 @@ title: LlamaIndex - Path Traversal to Local File Inclusion and RCE
 
 ---
 
-![Hero](../assets/llamaindex-nuka-logo.png)
-
-# **SECURITY DISCLOSURE | NUKA-AI-2026-003**
+# **SECURITY DISCLOSURE | JDP-2026-003**
 ## **Infrastructure Compromise: Path Traversal and Code Injection in LlamaIndex — Insecure AI Orchestration**
 
-**Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, Project Nuka-AI  
-**Series:** Project Nuka-AI (Disclosure #3)  
+**Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security  
+**Series:** JDP Security Research Series (Disclosure #3)  
 **Initial Disclosure Date:** March 27, 2026  
 **Target:** LlamaIndex | `llama-index-core` (v0.14.19 and below)  
 **Case Number:** [Huntr ID: bb0b2efb-8069-4642-97ec-7060aed7a7b7](https://huntr.com/repos/run-llama/llama_index) (Report marked ‘N/A’ by vendor - requires Huntr account to view details)  
@@ -156,7 +154,6 @@ The remediation timeline reveals a pattern of migrating vulnerable code out of t
 - Remediated the vulnerability across subsequent versions (v0.14.20/v0.14.21) via code migration and refactoring without public CVE assignment.
 
 ---
-
 ### **Appendices**
 
 #### **Appendix 1: Forensic Proof & Exploitation Mechanics**
@@ -167,14 +164,14 @@ The flaw is a classic Path Traversal (CWE-22) leading to Code Injection (CWE-94)
 **The Target: site-packages**
 The primary exploit targets the core integrity of the library itself. By pointing the SDK sink at the host's `site-packages/llama_index/core/`, an attacker can overwrite the `__init__.py` file.
 
-![Visual proof of the core library overwrite exploit](../assets/LLI/nuked-screen-shot.png)
+![Visual proof of the core library overwrite exploit](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/nuked-screen-shot.png)
 > **Figure 1:** Visual proof of the library overwrite exploit. The healthy Python module has been physically replaced with a malicious JSON payload. Any subsequent attempt to import the library results in the immediate execution of the attacker's code.
 
 **Forensic Script Repository**
 The following scripts were uploaded to the project repository and utilized to verify the vulnerability across different stages of the research:
-* [Primary Exploit PoC (py)](/assets/LLI/redemption_poc_v2.py)
-* [Exploit Payload (py)](/assets/LLI/exploit.py)
-* [Final Exploit Payload (py)](/assets/LLI/final_redemption_v7.py)
+* [Primary Exploit PoC (py)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/redemption_poc_v2.py)
+* [Exploit Payload (py)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/exploit.py)
+* [Final Exploit Payload (py)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/final_redemption_v7.py)
 
 ---
 
@@ -266,7 +263,7 @@ To verify this vulnerability:
 
 #### **Appendix 6: Forensic Recording Demonstration Breakdown (Chronological)**
 
-This section serves as the forensic artifacts for the Project Nuka-AI disclosure.
+This section serves as the forensic artifacts for the JDP Security disclosure.
 
 ---
 
@@ -276,11 +273,11 @@ This section serves as the forensic artifacts for the Project Nuka-AI disclosure
 * **Summary:** Demonstrates the primary permanent DoS and RCE vector. The exploit escapes the intended directory sandbox to physically overwrite the Python interpreter's `site-packages/llama_index/core/__init__.py` file.
 
 **Supporting Files:**
-* [Animated Visual (gif)](/assets/LLI/nuke-llama-core.gif) 
-* [Asciinema Recording (cast)](/assets/LLI/nuke-llama-core.cast) 
+* [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/nuke-llama-core.gif) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/nuke-llama-core.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LLI/nuke-llama-core.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/nuke-llama-core.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -292,11 +289,11 @@ This section serves as the forensic artifacts for the Project Nuka-AI disclosure
 * **Summary:** Provides secondary validation of the directory resolution sink manipulation, proving the reproducibility of the vulnerability across varied execution paths.
 
 **Supporting Files:**
-* [Animated Visual (gif)](/assets/LLI/llama-nuke-2.gif) 
-* [Asciinema Recording (cast)](/assets/LLI/llama-nuke-2.cast) 
+* [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-nuke-2.gif) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-nuke-2.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LLI/llama-nuke-2.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-nuke-2.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -308,11 +305,11 @@ This section serves as the forensic artifacts for the Project Nuka-AI disclosure
 * **Summary:** Demonstrates the successful navigation of the restricted shell to achieve RCE via arbitrary host-level file writes, bypassing the `DATASET_CLASS_FILENAME_REGISTRY`.
 
 **Supporting Files:**
-* [Animated Visual (gif)](/assets/LLI/llama-nuke-3.gif) 
-* [Asciinema Recording (cast)](/assets/LLI/llama-nuke-3.cast) 
+* [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-nuke-3.gif) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-nuke-3.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LLI/llama-nuke-3.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-nuke-3.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -324,11 +321,11 @@ This section serves as the forensic artifacts for the Project Nuka-AI disclosure
 * **Summary:** A high-fidelity recording demonstrating the final RCE payload execution, mapping the traversal path directly to a sensitive host system file for immediate code execution upon import.
 
 **Supporting Files:**
-* [Animated Visual (gif)](/assets/LLI/llama-rce-final2.gif) 
-* [Asciinema Recording (cast)](/assets/LLI/llama-rce-final2.cast) 
+* [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-rce-final2.gif) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-rce-final2.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LLI/llama-rce-final2.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama-rce-final2.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -340,10 +337,12 @@ This section serves as the forensic artifacts for the Project Nuka-AI disclosure
 * **Summary:** The culmination of the research. This recording verifies the exploit's persistence across a clean-state environment, ensuring that the vulnerability remains exploitable through standard framework initialization.
 
 **Supporting Files:**
-* [Animated Visual (gif)](/assets/LLI/llama_final_v1.gif) 
-* [Asciinema Recording (cast)](/assets/LLI/llama_final_v1.cast) 
+* [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama_final_v1.gif) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama_final_v1.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/LLI/llama_final_v1.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama_final_v1.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
+
+---
