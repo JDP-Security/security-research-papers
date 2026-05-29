@@ -7,13 +7,11 @@ title: Threat Modeling in AI Orchestration - Serialization Boundary Evasion in H
 
 ---
 
-![Hero](../assets/nuka-ai-haystack-logo.png)
-
-# **SECURITY ADVISORY | NUKA-AI-2026-005**
+# **SECURITY ADVISORY | JDP-2026-005**
 ## **Architectural Boundary Limitations: RCE via Serialization Bypass and Persistent Framework Compromise in Haystack**
 
-**Research Series:** Project Nuka-AI (Disclosure #5)    
-**Researcher:** Jeff Ponte (CISSP, CCSP, CEH) | Lead Researcher, JDP-Security    
+**Research Series:** JDP Security Research Series (Disclosure #5)    
+**Researcher:** Jeff Ponte (CISSP, CCSP, CEH) | Lead Researcher, JDP Security    
 **Target:** Deepset Haystack (`haystack-ai`)    
 **Affected Versions:** **All versions supporting the `unsafe` feature (Including Current Releases)** **Proposed Taxonomy:** **AISEC-01: Insecure AI Orchestration (Framework Integrity Compromise)** **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`    
 **Status:** **Vendor Classification: Accepted Risk / Intended Behavior (Unmitigated)** ---
@@ -245,11 +243,11 @@ VERSION.txt | 2 +-
 
 ### **11. Conclusion**
 
-The Nuka-AI-2026-005 vulnerability within Deepset's Haystack highlights a critical industry-wide challenge in AI orchestration security design. Relying on a "trusted configuration behavior" model—when the configuration can be arbitrarily altered by untrusted pipeline data—demonstrates a gap in modern framework threat modeling. When a documented security control (`unsafe=False`) is natively bypassable via the framework's own ingestion APIs, the deterministic integrity of the application stack is degraded.
+The JDP-2026-005 vulnerability within Deepset's Haystack highlights a critical industry-wide challenge in AI orchestration security design. Relying on a "trusted configuration behavior" model—when the configuration can be arbitrarily altered by untrusted pipeline data—demonstrates a gap in modern framework threat modeling. When a documented security control (`unsafe=False`) is natively bypassable via the framework's own ingestion APIs, the deterministic integrity of the application stack is degraded.
 
 This analysis of **Insecure AI Orchestration** illustrates that conventional application security assumptions are frequently incompatible with AI framework architectures. The vulnerability resides not in an isolated code bug, but in a systemic architectural design that dissolves the boundary between security enforcement and data processing. The continued exposure in current releases underscores the need for organizations to implement immediate, independent compensating controls.
 
-Project Nuka-AI advocates for the following industry standard practices to align with OWASP principles:
+JDP Security advocates for the following industry standard practices to align with OWASP principles:
 1. **Deterministic Serialization**: Implementation of explicit parameter stripping during deserialization workflows to prevent execution overlap.
 2. **Cryptographic Validation**: Built-in integrity protections (HMAC/Signatures) for all serialized pipeline components.
 3. **Shared Responsibility Clarity**: Explicit documentation defining the trust boundaries and limitations of framework-level sandboxing.
@@ -317,7 +315,7 @@ def validate_pipeline(data):
 * **April 1, 2026:** Vendor categorizes the architectural flaw as "trusted configuration behavior."
 * **April 8 - 11, 2026:** Supplemental forensic demonstrations provided to the vendor.
 * **April 20, 2026:** Vendor releases `haystack-ai` v2.28.0; forensic diff confirms mitigation absence.
-* **May 13, 2026:** Public disclosure executed via Project Nuka-AI.
+* **May 13, 2026:** Public disclosure executed via JDP Security Research Series.
 * **Current Status:** The vulnerability remains active and requires application-layer mitigation.
 
 ---
@@ -331,11 +329,11 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Execution Method:** **Transient Pipeline Execution**
 * **Summary:** Establishes the baseline vulnerability state. Demonstrates the execution of arbitrary host commands via manipulated pipeline initialization parameters.
 * **Supporting Artifacts:**
-    * [Asciinema Recording (cast)](/docs/assets/HS/haystack_exploit_demo.cast)
-    * [GIF Recording](/docs/assets/HS/haystack_exploit_demo.gif)
+    * [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_exploit_demo.cast)
+    * [GIF Recording](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_exploit_demo.gif)
 
-<video width="100%" controls poster="/docs/assets/HS/haystack_exploit_demo.png">
-  <source src="/docs/assets/HS/haystack_exploit_demo.mp4" type="video/mp4">
+<video width="100%" controls poster="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_exploit_demo.png">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_exploit_demo.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -346,11 +344,11 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Execution Method:** **File-Based Pipeline Ingestion**
 * **Summary:** Proves that standard `.yaml` pipeline configurations can natively bypass the intended `unsafe=False` security barrier during the `from_yaml()` ingestion process, leading to immediate code execution.
 * **Supporting Artifacts:**
-    * [Asciinema Recording (cast)](/docs/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.cast)
-    * [GIF Recording](/docs/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.gif)
+    * [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.cast)
+    * [GIF Recording](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.gif)
 
-<video width="100%" controls poster="/docs/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.png">
-  <source src="/docs/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.mp4" type="video/mp4">
+<video width="100%" controls poster="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.png">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_yaml_10_0_FINAL-NUKE-3.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -361,11 +359,11 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Execution Method:** **Persistent Code Injection**
 * **Summary:** Demonstrates the CVSS Scope Change (S:C) impact. The initial RCE is weaponized to rewrite the global `haystack/__init__.py` dependency on the host system, converting a transient pipeline flaw into a permanent architectural backdoor.
 * **Supporting Artifacts:**
-    * [Asciinema Recording (cast)](/docs/assets/HS/haystack_10_0_FINAL_V4_NUKE.cast)
-    * [GIF Recording](/docs/assets/HS/haystack_10_0_FINAL_V4_NUKE.gif)
+    * [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V4_NUKE.cast)
+    * [GIF Recording](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V4_NUKE.gif)
 
-<video width="100%" controls poster="/docs/assets/HS/haystack_10_0_FINAL_V4_NUKE.png">
-  <source src="/docs/assets/HS/haystack_10_0_FINAL_V4_NUKE.mp4" type="video/mp4">
+<video width="100%" controls poster="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V4_NUKE.png">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V4_NUKE.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -376,10 +374,12 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Execution Method:** **Post-Exploitation Execution Verification**
 * **Summary:** Confirms that the host-level infection survives pipeline destruction and process termination. Initializing a clean Python process and executing `import haystack` triggers the attacker's persistent payload synchronously.
 * **Supporting Artifacts:**
-    * [Asciinema Recording (cast)](/docs/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.cast)
-    * [GIF Recording](/docs/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.gif)
+    * [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.cast)
+    * [GIF Recording](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.gif)
 
-<video width="100%" controls poster="/docs/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.png">
-  <source src="/docs/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.mp4" type="video/mp4">
+<video width="100%" controls poster="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.png">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/HS/haystack_10_0_FINAL_V5_AUDIT-NUKE.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
+
+---
