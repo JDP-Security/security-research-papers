@@ -1,3 +1,5 @@
+<a href="/security-research-papers/" class="btn">← Back to Research Series</a>
+<br><br>
 # JDP Security Research Series
 ## Vulnerability Disclosures & Technical White Papers (2026)
 
