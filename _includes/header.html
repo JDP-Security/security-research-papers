@@ -1,0 +1,10 @@
+<header class="page-header" role="banner">
+  <a href="/security-research-papers/" class="btn">← Back to Research Series</a>
+
+  <h1 class="project-name">{{ page.title | default: site.title | escape }}</h1>
+  <h2 class="project-tagline">{{ page.description | default: site.description | escape }}</h2>
+  
+  {% if site.github_url %}
+    <a href="{{ site.github_url }}" class="btn">View on GitHub</a>
+  {% endif %}
+</header>
