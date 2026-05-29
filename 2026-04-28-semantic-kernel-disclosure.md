@@ -6,8 +6,6 @@ title: "Architectural Vulnerabilities in AI Orchestration: A Semantic Kernel Cas
 
 ---
 
-![Hero](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/nuka-ai-sk-logo.png)
-
 # WHITE PAPER | JDP-2026-001
 ## The Orchestration Trust Gap: Remediation Evasions in Microsoft Semantic Kernel and Agent Framework 1.0
 
