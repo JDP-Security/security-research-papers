@@ -3,22 +3,20 @@ date: 2026-05-05
 title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Framework Case Study"
 ---
 
-> **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design natively facilitates mounting the host Docker socket into the AI agent container when detected. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **NukaSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise.
+> **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design natively facilitates mounting the host Docker socket into the AI agent container when detected. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **JDPEnterpriseSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise.
 
 ---
 
-![Hero](../assets/MAF-logo.png)
-
-# **WHITE PAPER | NUKA-AI-2026-002**
+# **WHITE PAPER | JDP-2026-002**
 ## **Infrastructure Breach: Container Privilege Escalation via Insecure AI Orchestration**
 
-**Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, Project Nuka-AI   
-**Series:** Project Nuka-AI (Disclosure #2)   
-**Initial Documentation Date:** April 8, 2026   
-**Target:** Microsoft Agent Framework (v1.0.0) | `claude-agent-sdk` (v0.1.48)   
-**Case Number:** MSRC VULN-181659 (MSRC 112751)   
-**CVSS v3.1 Score:** **10.0 (Critical)** **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`   
-**Status:** Vendor Classified as Intended Architectural Behavior (Requires Manual Mitigation)   
+**Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security Research Series    
+**Series:** JDP Security Research Series (Disclosure #2)    
+**Initial Documentation Date:** April 8, 2026    
+**Target:** Microsoft Agent Framework (v1.0.0) | `claude-agent-sdk` (v0.1.48)    
+**Case Number:** MSRC VULN-181659 (MSRC 112751)    
+**CVSS v3.1 Score:** **10.0 (Critical)** **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`    
+**Status:** Vendor Classified as Intended Architectural Behavior (Requires Manual Mitigation)    
 
 ---
 
@@ -39,7 +37,7 @@ The framework establishes a permissive bridge to host privileges via its `SOCKET
 
 ```python
 # claude_agent_sdk/types.py (Line 713)
-# PROJECT NUKA-AI ANALYSIS: PRIVILEGE ESCALATION FACILITATION
+# JDP SECURITY ANALYSIS: PRIVILEGE ESCALATION FACILITATION
 
 SOCKET_ALLOW_LIST = [
     "/var/run/docker.sock",  # <-- Framework-sanctioned escalation path
@@ -175,7 +173,7 @@ SOCKET_ALLOW_LIST = [
 ---
 
 ### **Conclusion**
-When an AI framework’s default architecture implicitly facilitates host compromise, it reveals a critical misalignment between traditional vulnerability classification and modern agentic orchestration. Project Nuka-AI submits these findings to the broader security community to highlight how architectural intent can bypass SCA visibility, establishing the urgent need for robust, defense-in-depth strategies when deploying autonomous AI agents.
+When an AI framework’s default architecture implicitly facilitates host compromise, it reveals a critical misalignment between traditional vulnerability classification and modern agentic orchestration. The JDP Security Research Series submits these findings to the broader security community to highlight how architectural intent can bypass SCA visibility, establishing the urgent need for robust, defense-in-depth strategies when deploying autonomous AI agents.
 
 ---
 
@@ -207,8 +205,8 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     s.sendall(request.encode())
 ```
 
-#### **Appendix 4: Pre-Execution Validation (NukaSecurityFilter)**
-To address the architectural trust gap, frameworks must implement security-by-design, analyzing LLM-generated payloads *prior* to execution. The NukaSecurityFilter demonstrates an AST (Abstract Syntax Tree) middleware approach to intercept dangerous operations.
+#### **Appendix 4: Pre-Execution Validation (JDPEnterpriseSecurityFilter)**
+To address the architectural trust gap, frameworks must implement security-by-design, analyzing LLM-generated payloads *prior* to execution. The JDPEnterpriseSecurityFilter demonstrates an AST (Abstract Syntax Tree) middleware approach to intercept dangerous operations.
 *(Note: This conceptual filter analyzes Python execution. Comprehensive implementations require language-agnostic validation.)*
 
 ```python
@@ -219,7 +217,7 @@ class SecurityViolationException(Exception):
     """Exception raised for identified security violations."""
     pass
 
-class NukaSecurityFilter:
+class JDPEnterpriseSecurityFilter:
     def __init__(self):
         self.blocked_paths = ["/var/run/docker.sock", "docker.sock", "unix://"]
         self.blocked_imports = {"socket", "docker", "http.client", "urllib"}
@@ -266,7 +264,7 @@ class MAFSecurityMiddleware:
     """Security middleware for agentic orchestration frameworks."""
     
     def __init__(self):
-        self.security_filter = NukaSecurityFilter()
+        self.security_filter = JDPEnterpriseSecurityFilter()
     
     async def before_tool_execution(self, tool_call: Dict, context: Any):
         """Mandatory security gate prior to tool execution sink."""
@@ -319,11 +317,11 @@ This section provides visual artifacts confirming the container escape methodolo
 * **Summary:** Demonstrates the primary container escape vector. Following a natural language prompt, the Ollama-backed LLM autonomously navigates the sandbox boundary, executing commands to gain unauthorized host-level access.
 
 **Supporting Files:**
-* [Execution Logs (txt)](/assets/MAF/maf-cve-Ollama-LLM.txt) 
-* [Asciinema Recording (cast)](/assets/MAF/maf-cve-Ollama-LLM.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/MAF/maf-cve-Ollama-LLM.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/MAF/maf-cve-Ollama-LLM.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/MAF/maf-cve-Ollama-LLM.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/MAF/maf-cve-Ollama-LLM.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -335,11 +333,11 @@ This section provides visual artifacts confirming the container escape methodolo
 * **Summary:** Confirms that the vulnerability remains viable in environments stripped of standard networking utilities (e.g., `curl`). The LLM successfully utilizes native language features to interface with the Docker daemon, achieving execution without triggering standard network-based alerts.
 
 **Supporting Files:**
-* [Execution Logs (txt)](/assets/MAF/maf-cve-Ollama-LLM-NoCURLAPI-CALL.txt) 
-* [Asciinema Recording (cast)](/assets/MAF/maf-cve-Ollama-LLM-NoCURLAPI-CALL.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/MAF/maf-cve-Ollama-LLM-NoCURLAPI-CALL.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/MAF/maf-cve-Ollama-LLM-NoCURLAPI-CALL.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/MAF/maf-cve-Ollama-LLM-NoCURLAPI-CALL.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/MAF/maf-cve-Ollama-LLM-NoCURLAPI-CALL.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
