@@ -2,17 +2,17 @@
 date: 2026-04-28
 title: "Architectural Vulnerabilities in AI Orchestration: A Semantic Kernel Case Study"
 ---
-> **⚠️ SECURITY ADVISORY:** Environments utilizing **Microsoft Semantic Kernel (.NET SDK) version 1.48.0 or below**, or **Agent Framework 1.0**, may be operating with an unmitigated Remote Code Execution (RCE) vector. This paper demonstrates active evasion techniques against the official remediation for CVE-2026-25592. It is strongly advised that organizations implement manual input canonicalization, such as the `NukaSecurityFilter` outlined in Appendix 1.
+> **⚠️ SECURITY ADVISORY:** Environments utilizing **Microsoft Semantic Kernel (.NET SDK) version 1.48.0 or below**, or **Agent Framework 1.0**, may be operating with an unmitigated Remote Code Execution (RCE) vector. This paper demonstrates active evasion techniques against the official remediation for CVE-2026-25592. It is strongly advised that organizations implement manual input canonicalization, such as the `JDPEnterpriseSecurityFilter` outlined in Appendix 1.
 
 ---
 
-![Hero](../assets/nuka-ai-sk-logo.png)
+![Hero](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/nuka-ai-sk-logo.png)
 
-# WHITE PAPER | NUKA-AI-2026-001
+# WHITE PAPER | JDP-2026-001
 ## The Orchestration Trust Gap: Remediation Evasions in Microsoft Semantic Kernel and Agent Framework 1.0
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Security Researcher, JDP-Security  
-**Series:** Project Nuka-AI (Disclosure #1)  
+**Series:** JDP Security Research Series (Disclosure #1)  
 **Date:** April 25, 2026  
 **Classification:** Public Research Disclosure  
 **Target:** Microsoft Semantic Kernel (.NET) v1.47.0 - v1.48.0, Agent Framework 1.0  
@@ -60,10 +60,10 @@ This vulnerability represents a systemic risk within the AI supply chain. Becaus
 Evaluating this vulnerability requires understanding Semantic Kernel's execution pipeline. SK operates as an orchestration engine, granting LLMs the functional capability to interact with host operating systems via defined plugins.
 
 ### The Execution Pipeline
-1.  **The Prompt:** User inputs natural language.
-2.  **The Planner/Kernel:** The framework transmits the prompt to the LLM, alongside a schema of available native functions (Plugins).
-3.  **The Tool Call:** The LLM generates a JSON-formatted payload instructing the framework to execute a specific function with provided arguments.
-4.  **The Execution Sink:** The framework maps the LLM's JSON to the compiled C# binary, executes the code, and returns the result to the LLM context.
+1.  The Prompt: User inputs natural language.
+2.  The Planner/Kernel: The framework transmits the prompt to the LLM, alongside a schema of available native functions (Plugins).
+3.  The Tool Call: The LLM generates a JSON-formatted payload instructing the framework to execute a specific function with provided arguments.
+4.  The Execution Sink: The framework maps the LLM's JSON to the compiled C# binary, executes the code, and returns the result to the LLM context.
 
 > **Architectural Trust Vulnerability:** Traditional application security assumes untrusted user input and trusted backend logic. Semantic Kernel alters this paradigm by placing a non-deterministic entity (the LLM) within the execution pipeline, while the framework natively trusts the LLM's output as hardcoded backend logic.
 
@@ -167,7 +167,7 @@ Securing Agentic AI orchestration requires the implementation of Kernel-Level Se
 ### 9.1 Immediate Mitigations (Developer Level)
 * **Deprecate Auto-Invocation:** Discontinue the use of `AutoInvokeKernelFunctions` for any application possessing disk, network, or database privileges. Utilize manual function calling to inspect and validate all LLM arguments prior to execution.
 * **Implement Safe Roots:** Explicitly hard-code boundary directories within every file-system-bound plugin.
-* **Custom Global Filters:** Implement canonicalization filters (e.g., `NukaSecurityFilter`, Appendix 1) that resolve all complex types (Strings, JSON, Objects) prior to security validation.
+* **Custom Global Filters:** Implement canonicalization filters (e.g., `JDPEnterpriseSecurityFilter`, Appendix 1) that resolve all complex types (Strings, JSON, Objects) prior to security validation.
 
 ### 9.2 Architectural Requirements (Vendor Level)
 * **Unified Security Pipeline:** Canonicalization and normalization must occur *before* the security evaluation.
@@ -181,10 +181,10 @@ This disclosure highlights a systemic risk for the broader AI industry. As engin
 
 Security architecture supersedes localized implementation patches. Vulnerabilities stemming from orchestration trust gaps require structural redesigns rather than regex-based hotfixes. Until frameworks adopt standard Zero-Trust principles for autonomous tooling, Agentic AI poses a significant risk to enterprise integrity.
 
-### About Project Nuka-AI
-Project Nuka-AI is an independent research initiative focused on identifying systemic architectural risks in AI orchestration frameworks. Led by **Jeff Ponte (CISSP, CCSP, CEH)**, the project aims to ensure the development of secure, resilient foundations for enterprise AI integration. 
+### About JDP Security Research Series
+The JDP Security Research Series is an independent research initiative focused on identifying systemic architectural risks in AI orchestration frameworks. Led by **Jeff Ponte (CISSP, CCSP, CEH)**, the project aims to ensure the development of secure, resilient foundations for enterprise AI integration. 
 
-**Contact:** Nuka.AI@proton.me
+**Contact:** JDP.Security@proton.me
 
 
 ---
@@ -196,7 +196,7 @@ For environments unable to upgrade to a structurally secured version of the fram
 ```csharp
 // Appendix 1: Enterprise-Grade Semantic Kernel Security Filter
 // This filter addresses the six evasion vectors identified in this research.
-public class NukaSecurityFilter : IFunctionInvocationFilter
+public class JDPEnterpriseSecurityFilter : IFunctionInvocationFilter
 {
     private readonly string _safeRoot;
     private readonly HashSet<string> _fileIoNames = new()
@@ -205,7 +205,7 @@ public class NukaSecurityFilter : IFunctionInvocationFilter
         "UploadFile", "WriteFile", "ReadFile", "ExecuteScript"
     };
 
-    public NukaSecurityFilter(string safeRootDirectory = null)
+    public JDPEnterpriseSecurityFilter(string safeRootDirectory = null)
     {
         _safeRoot = Path.GetFullPath(safeRootDirectory ?? 
             Path.Combine(Directory.GetCurrentDirectory(), "appdata"));
@@ -290,7 +290,7 @@ public class NukaSecurityFilter : IFunctionInvocationFilter
         }
         return jsonObject.ToString();
     }
-} // End of NukaSecurityFilter class
+} // End of JDPEnterpriseSecurityFilter class
 ```
 
 ---
@@ -307,12 +307,12 @@ This section provides the forensic artifacts associated with the disclosure, dem
 * **Summary:** Demonstrates a successful autonomous exploit on a modern version of the SDK. The natural language prompt leads to the LLM independently executing a tool call to overwrite `Program.cs`.
 
 **Supporting Files:**
-* [Exploit Harness (Program.cs)](/assets/SK/Microsoft_SK_1.74_Nuke_Proof-Program.cs) 
-* [Execution Logs (txt)](/assets/SK/Microsoft_SK_1.74_Nuke_Proof.txt) 
-* [Asciinema Recording (cast)](/assets/SK/Microsoft_SK_1.74_Nuke_Proof.cast) 
+* [Exploit Harness (Program.cs)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.74_Nuke_Proof-Program.cs) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.74_Nuke_Proof.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.74_Nuke_Proof.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/SK/Microsoft_SK_1.74_Nuke_Proof.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.74_Nuke_Proof.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -324,63 +324,63 @@ This section provides the forensic artifacts associated with the disclosure, dem
 * **Summary:** Targets the v1.47.0 release following initial repository mitigations, proving the LLM successfully traverses security boundaries.
 
 **Supporting Files:**
-* [Exploit Harness (Program.cs)](/assets/SK/Microsoft_SK_1.47_Hardened_Bypass-Program.cs) 
-* [Execution Logs (txt)](/assets/SK/Microsoft_SK_1.47_Hardened_Bypass.txt) 
-* [Asciinema Recording (cast)](/assets/SK/Microsoft_SK_1.47_Hardened_Bypass.cast) 
+* [Exploit Harness (Program.cs)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.47_Hardened_Bypass-Program.cs) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.47_Hardened_Bypass.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.47_Hardened_Bypass.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/SK/Microsoft_SK_1.47_Hardened_Bypass.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/Microsoft_SK_1.47_Hardened_Bypass.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
 ---
 
-### 3. JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.cast
+### 3. JDP_Security_Series_v1.47-CVE-2026-25592-BYPASS-2.cast
 * **Target Environment:** v1.47.0
 * **Execution Method:** **Technical Audit (Manual)**
 * **Summary:** Documents the **Type Confusion** flaw via manual kernel invocation. Highlights the filter failure when the malicious path is encapsulated within non-string data types.
 
 **Supporting Files:**
-* [Exploit Harness (Program.cs)](/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2-Program.cs) 
-* [Execution Logs (txt)](/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.txt) 
-* [Asciinema Recording (cast)](/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.cast) 
+* [Exploit Harness (Program.cs)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2-Program.cs) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.47-CVE-2026-25592-BYPASS-2.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
 ---
 
-### 4. JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.cast
+### 4. JDP_Security_Series_v1.48-BREAKING_CHANGE.cast
 * **Target Environment:** v1.48.0
 * **Execution Method:** **Technical Audit (Manual)**
 * **Summary:** Regression test demonstrating that internal updates to the **Kernel Binder** mitigated explicit string-based traversals, resulting in expected `KernelException` errors.
 
 **Supporting Files:**
-* [Exploit Harness (Program.cs)](/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE-Program.cs) 
-* [Execution Logs (txt)](/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.txt) 
-* [Asciinema Recording (cast)](/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.cast) 
+* [Exploit Harness (Program.cs)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE-Program.cs) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-BREAKING_CHANGE.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
 ---
 
-### 5. JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.cast
+### 5. JDP_Security_Series_v1.48-ZERO_DAY_PROOF.cast
 * **Target Environment:** v1.48.0
 * **Execution Method:** **Technical Audit (Manual)**
 * **Summary:** Confirms that despite kernel binder updates, the architecture remains vulnerable to **Type Confusion and Late Canonicalization** across six evaluated bypass vectors.
 
 **Supporting Files:**
-* [Exploit Harness (Program.cs)](/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF-Program.cs) 
-* [Execution Logs (txt)](/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.txt) 
-* [Asciinema Recording (cast)](/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.cast) 
+* [Exploit Harness (Program.cs)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF-Program.cs) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.txt) 
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.cast) 
 
 <video width="100%" controls>
-  <source src="/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/JDP_Security_Series_NukaAI_v1.48-ZERO_DAY_PROOF.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -389,17 +389,17 @@ This section provides the forensic artifacts associated with the disclosure, dem
 ## Appendix 3: Architectural Execution Visuals
 
 Semantic Kernel Version 1.74.0
-![Alt](/assets/SK/1-74-1.png)
+![Alt](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/1-74-1.png)
 
 The Program.cs overwrite sequence initiated by LLM Prompt:
-![Alt](/assets/SK/1-74-2.png)
+![Alt](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/1-74-2.png)
 
 Semantic Kernel Version 1.47.0 
 *Analysis of the mitigated version (Commit fa2d52f6). Execution confirms the vector remains open:*
-![Alt](/assets/SK/1-47-1.png)
+![Alt](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/1-47-1.png)
 
 The Program.cs overwrite sequence initiated by LLM Prompt:
-![Alt](/assets/SK/1-47-2.png)
+![Alt](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/SK/1-47-2.png)
 
 ---
 
@@ -415,7 +415,7 @@ A: Partially. It prevents fully autonomous exploitation, but manual tool calling
 A: Currently unverified. The initial vulnerability report was classified as developer error, and subsequent repository mitigations have proven incomplete during testing.
 
 **Q: Are alternative AI frameworks subject to similar risks?**
-A: Yes. Project Nuka-AI research indicates that analogous orchestration trust gaps exist within LangChain, LlamaIndex, and Deepset Haystack architectures.
+A: Yes. JDP Security Research Series indicates that analogous orchestration trust gaps exist within LangChain, LlamaIndex, and Deepset Haystack architectures.
 
 ---
 
