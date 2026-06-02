@@ -1,6 +1,6 @@
 <div style="display: flex; justify-content: space-between; align-items: center; background: #1a2332; padding: 10px 15px; border-radius: 6px; margin-bottom: 25px;">
   <span style="font-weight: bold; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">🛡️ JDP Security Research Archive</span>
-  <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Advisories</a>
+  <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
 </div>
 
 ---
