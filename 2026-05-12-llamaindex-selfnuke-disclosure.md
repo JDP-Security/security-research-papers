@@ -2,6 +2,10 @@
 date: 2026-05-12
 title: LlamaIndex - Path Traversal to Local File Inclusion and RCE
 ---
+<div style="display: flex; justify-content: space-between; align-items: center; background: #1a2332; padding: 10px 15px; border-radius: 6px; margin-bottom: 25px;">
+  <span style="font-weight: bold; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">🛡️ JDP Security Research Archive</span>
+  <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
+</div>
 
 > **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 and below)** are operating with a critical, unmitigated Remote Code Execution (RCE) and Permanent Denial of Service (DoS) vulnerability. Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented remediation was executed across **v0.14.20** and **v0.14.21**. Because no formal CVE was issued, legacy deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
 
