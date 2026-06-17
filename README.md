@@ -5,7 +5,7 @@ Welcome to the central portal for the 2026 AI Orchestration Framework Research S
 
 ### Published Advisories
 
-* **[JDP-2026-001: Microsoft Semantic Kernel & Agent Framework 1.0](./2026-04-28-semantic-kernel-disclosure.html)** *The Orchestration Trust Gap: Remediation Evasions and Incomplete Output Masking (CVSS 10.0).*
+* **[JDP-2026-001: Microsoft Semantic Kernel & Agent Framework 1.0](./2026-04-28-semantic-kernel-disclosure.md)** *The Orchestration Trust Gap: Remediation Evasions and Incomplete Output Masking (CVSS 10.0).*
     
 * **[JDP-2026-002: Microsoft Agent Framework v1.0.0](./2026-05-05-maf-docker-escape-disclosure.html)** *Infrastructure Breach: Container Privilege Escalation via Automated Host Socket Mounting (CVSS 10.0).*
     
