@@ -14,11 +14,11 @@ title: LangChain-Core Insecure AI Orchestration Vulnerability
 **Series:** JDP Security Research Series (Disclosure #4)  
 **Initial Disclosure Date:** March 17, 2026  
 **Final Revision Date:** May 8, 2026  
-**Target:** LangChain | `langchain-core` (Verified through v1.2.26) 
-**Target CVEs Bypassed:** CVE-2026-34070 (Read-Side Bypass) & CVE-2023-36258 (Serialization Controls Bypass)
+**Target:** LangChain | `langchain-core` (Verified through v1.2.26)  
+**Target CVEs Bypassed:** CVE-2026-34070 (Read-Side Bypass) & CVE-2023-36258 (Serialization Controls Bypass)  
 **Case Number:** GHSA-fc6f-jgp6-2725 / External CNA Escalation  
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
-**Status:** Incomplete Remediation / Undocumented Mitigation (Read-side mitigated under **CVE-2026-34070**; Write-side exposed through v1.2.26)
+**Status:** Incomplete Remediation / Undocumented Mitigation (Read-side mitigated under **CVE-2026-34070**; Write-side exposed through v1.2.26)  
 
 **Key Points**
 * **Vulnerability:** Critical Remote Code Execution (RCE) in LangChain-core via symlink traversal in the `save()` method.
