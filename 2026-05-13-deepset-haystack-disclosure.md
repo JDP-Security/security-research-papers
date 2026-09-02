@@ -43,12 +43,6 @@ This advisory documents a critical architectural vulnerability within the Haysta
 4. **Implementation Lifecycle Gap**: The `unsafe` feature was introduced in commit [`3e3f79b9285c5b56432aac3e4ef2309e5f31ea74`](https://github.com/deepset-ai/haystack/commit/3e3f79b9285c5b56432aac3e4ef2309e5f31ea74) without corresponding safeguards in the `from_dict` hydration pipeline.
 
 **Exploitation Risks:**
-* **SaaS Multi-Tenant Escape**: Enables a single tenant to achieve unauthorized access to the underlying provider infrastructure.
-* **Cache Integrity Compromise**: Malicious configurations injected via Redis/Memcached execute autonomously upon retrieval.
-* **Persistent Framework Alteration**: Host-level code injection survives pipeline deletion and application reboots.
-* **Supply Chain Propagation**: Malicious pipeline definitions can compromise downstream deployments seamlessly.
-
-**Exploitation Risks:**
 * **SaaS Multi-Tenant Escape**: Enables a single tenant to achieve unauthorized access to the underlying provider infrastructure via direct API calls or database poisoning.
 * **Cache Integrity Compromise**: Malicious configurations injected via Redis/Memcached execute autonomously upon retrieval.
 * **Persistent Framework Alteration**: Host-level code injection survives pipeline deletion and application reboots.
