@@ -48,6 +48,14 @@ This advisory documents a critical architectural vulnerability within the Haysta
 * **Persistent Framework Alteration**: Host-level code injection survives pipeline deletion and application reboots.
 * **Supply Chain Propagation**: Malicious pipeline definitions can compromise downstream deployments seamlessly.
 
+**Exploitation Risks:**
+* **SaaS Multi-Tenant Escape**: Enables a single tenant to achieve unauthorized access to the underlying provider infrastructure via direct API calls or database poisoning.
+* **Cache Integrity Compromise**: Malicious configurations injected via Redis/Memcached execute autonomously upon retrieval.
+* **Persistent Framework Alteration**: Host-level code injection survives pipeline deletion and application reboots.
+* **Supply Chain Propagation**: Malicious pipeline definitions can compromise downstream deployments seamlessly.
+* **Remote Code Execution (Unauthenticated)**: If the deserialization endpoint is publicly exposed, an attacker can achieve RCE with no prior access or credentials. This scenario is demonstrated in Appendix C, where the lab's unauthenticated `/chat` API endpoint accepts malicious pipeline definitions and executes attacker-controlled code.
+* **Internal Network Pivot**: Message queue injection or file-based loading can enable lateral movement within internal networks.
+
 ### **2. CVSS v3.1 & CWE Mapping**
 The score of **10.0** is justified by the following vector: `AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`
 
@@ -146,6 +154,102 @@ The following analysis details the exploitation methodology, verified via forens
 **B. Scope Change & Persistent Compromise**
 * **Filesystem Alteration:** Forensic auditing demonstrates that the initial RCE is utilized to append obfuscated Python logic directly into the global framework dependency: `/usr/local/lib/python3.11/site-packages/haystack/__init__.py`.
 * **Execution Verification:** A fully independent Python execution context is initiated. Upon executing the standard `import haystack` declaration, the compromised framework immediately executes the injected payload, confirming that the transient pipeline attack has escalated to persistent host-level infrastructure compromise.
+
+### **4.5 Attack Vectors & Deployment Scenarios**
+
+The core exploit payload is identical regardless of delivery method — a YAML or JSON pipeline definition containing `"unsafe": true` with a Jinja2 SSTI template. The attack *vector* depends entirely on how the framework is deployed and what access the attacker has to the deserialization boundary.
+
+**Authentication Clarification:** Authentication controls *who* can reach the vulnerable deserialization code, but does *not* fix the vulnerability itself. Once an attacker reaches `from_dict()` or `from_yaml()`, the exploit works identically regardless of authentication status.
+
+---
+
+#### **4.5.1 Scenario 1: Direct API Call (Remote, No Prior Access)**
+
+**How it works:** The application exposes an HTTP endpoint that accepts pipeline definitions. The attacker sends a crafted POST request directly to this endpoint with a malicious payload.
+
+**Example request:**
+```http
+POST /api/pipeline/load HTTP/1.1
+Content-Type: application/json
+
+{
+  "type": "haystack.pipeline.Pipeline",
+  "components": {
+    "adapter": {
+      "type": "haystack.components.converters.output_adapter.OutputAdapter",
+      "init_parameters": {
+        "template": "{{ trigger }}{{ self.__init__.__globals__.__builtins__.__import__('os').system('id') }}",
+        "output_type": "str",
+        "unsafe": true
+      }
+    }
+  }
+}
+```
+
+**Authentication Impact:**
+- **Public endpoint**: Remote exploit, no prior access required
+- **Authenticated endpoint**: Attacker needs valid credentials first, then exploit works identically
+
+**Real-world applicability:** This is the scenario demonstrated in the attached forensic recordings (Appendix C). The lab environment exposes an unauthenticated `/chat` endpoint that accepts pipeline definitions.
+
+---
+
+#### **4.5.2 Scenario 2: File-Based Loading (Requires Write Access)**
+
+**How it works:** The application loads pipeline definitions from YAML or JSON files on disk. The attacker must write a malicious file to a location that the application will read.
+
+**Attack paths to achieve file write:**
+- File upload feature that accepts pipeline configurations
+- Directory traversal vulnerability in another endpoint
+- Compromised CI/CD pipeline that deploys configuration files
+- Shared storage (NFS, S3) with misconfigured permissions
+- Malicious insider or compromised developer workstation
+
+**Authentication Impact:** Varies by attack path. File upload endpoints may be authenticated or public. CI/CD access requires pipeline credentials.
+
+---
+
+#### **4.5.3 Scenario 3: Database Poisoning (Requires Database Access)**
+
+**How it works:** Pipeline definitions are stored in a database (PostgreSQL, MongoDB, etc.) and loaded at runtime. The attacker modifies a stored pipeline record to include `"unsafe": true`.
+
+**Attack paths to modify the database:**
+- SQL injection in another part of the application
+- Direct database access (exposed port, weak credentials)
+- Compromised admin panel or management API
+- Backup restoration with malicious data
+- Cache poisoning (Redis/Memcached)
+
+**Authentication Impact:** Direct database access typically requires credentials. SQL injection bypasses application-level authentication entirely.
+
+---
+
+#### **4.5.4 Scenario 4: Message Queue Injection (Requires Queue Access)**
+
+**How it works:** Pipeline definitions are transmitted via message queues (RabbitMQ, Kafka, Amazon SQS, etc.) between microservices. The attacker injects a malicious message into the queue that the consumer deserializes.
+
+**Attack paths to inject into the queue:**
+- Man-in-the-middle on internal network traffic
+- Compromised producer service that sends messages to the queue
+- Direct access to the queue management interface or API
+- Exploiting trust relationships between services
+
+**Authentication Impact:** Message queues typically rely on network-level ACLs rather than application authentication. Internal network access may be easier to obtain than application-level credentials.
+
+---
+
+#### **4.5.5 Summary of Attack Vectors**
+
+| Scenario | Delivery Method | Prior Access Required | Authentication Mitigates? |
+|---|---|---|---|
+| Direct API Call | HTTP request | None (if public) | Controls reach, not exploit |
+| File-Based Loading | File write | Write access to target path | Varies by path |
+| Database Poisoning | Database modification | DB access or SQLi | Bypassable via SQLi |
+| Message Queue Injection | Queue message | Queue network access | Network-level only |
+
+**Key Takeaway:** The vulnerability is always the same — a missing validation in `from_dict()` that allows `"unsafe": true` to be injected via data. The attack vector determines how the payload reaches the deserialization code, but the exploit itself is identical regardless of vector. Authentication and network controls can reduce the attack surface but do not eliminate the underlying architectural flaw.
+
 
 ### **5. The OWASP Bridge: Proposing AISEC-01 (Insecure AI Orchestration)**
 Traditional AppSec models emphasize vulnerabilities such as Insecure Deserialization (CWE-502) and align with frameworks like the OWASP Top 10. However, this disclosure underscores a specialized, emerging threat vector necessitating expansion of the OWASP Top 10 for LLM Applications: **Insecure AI Orchestration**.
