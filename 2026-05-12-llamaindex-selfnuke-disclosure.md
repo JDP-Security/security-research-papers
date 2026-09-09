@@ -20,7 +20,7 @@ title: LlamaIndex - Path Traversal to Local File Inclusion and RCE
 **Target:** LlamaIndex | `llama-index-core` (v0.14.19 and below)  
 **Case Number:** [Huntr ID: bb0b2efb-8069-4642-97ec-7060aed7a7b7](https://huntr.com/repos/run-llama/llama_index) (Report marked ‘N/A’ by vendor - requires Huntr account to view details)  
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
-**Status:** Officially Disputed / Silently Remediated in [v0.14.20](https://github.com/run-llama/llama_index/releases/tag/v0.14.20) and refined in [v0.14.21](https://github.com/run-llama/llama_index/releases/tag/v0.14.21)  
+**Status:** Officially Disputed / **Incomplete Silent Remediation** (Partial component removal in v0.14.20; `SimpleKVStore` remains vulnerable in v0.14.21+) 
 
 ---
 
@@ -29,7 +29,7 @@ This white paper documents a critical architectural flaw in **LlamaIndex**, an i
 
 This oversight culminates in a full-chain vulnerability driven by Path Traversal (**CWE-22**) leading to Code Injection (**CWE-94**). I demonstrate how an AI agent can be manipulated into escaping its intended sandbox to physically overwrite its own host application's source code (referred to internally as the "Library Overwrite" vector). 
 
-Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. However, forensic analysis of the repository's git history reveals the vendor subsequently executed a coordinated code migration to remediate the vulnerability without issuing a public security advisory. 
+Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. However, forensic analysis of the repository's git history reveals the vendor subsequently executed a coordinated code migration. Critically, while the `dataset.py` vector was silently removed, this undocumented remediation **failed to patch the underlying `SimpleKVStore` persistence vulnerability**, leaving users of v0.14.21+ persistently exposed while under the assumption their software is up to date. 
 
 This research highlights the risks associated with **undocumented remediation** in the open-source supply chain: where a vulnerability is mitigated under the guise of routine maintenance without formal disclosure. This practice leaves the community in a "False Negative" state, where security tools fail to alert on active threats because no official CVE has been filed, exposing enterprise deployments to unmitigated risk.
 
@@ -241,9 +241,9 @@ with patch("llama_index.core.download.dataset.get_file_content") as mock_get, \
 - Audit any unexpected file writes or modifications to Python's `site-packages` directory.
 
 **Immediate Mitigation:**
-1. Upgrade to `llama-index-core >= 0.14.21`
-2. Implement path validation wrapper (Appendix 2)
-3. Run AI agents with minimal filesystem permissions.
+1. **WARNING:** Upgrading to `llama-index-core >= 0.14.21` does **NOT** fully mitigate the `SimpleKVStore.persist()` vector. 
+2. You **MUST** implement a manual path validation wrapper (Appendix 2) regardless of your framework version.
+3. Run AI agents with strictly scoped, minimal filesystem permissions.
 
 ---
 
@@ -348,5 +348,17 @@ This section serves as the forensic artifacts for the JDP Security disclosure.
   <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llama_final_v1.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
+
+---
+
+##### 6. Auto-Pilot Patch Bypass (auto-terminal-session)
+* **Target Environment:** LlamaIndex (`llama-index-core` v0.14.19, v0.14.20, and v0.14.21+)
+* **Execution Method:** **Multi-Stage Vulnerability Progression**
+* **Summary:** An automated walkthrough proving that the vendor's silent removal of `dataset.py` in v0.14.20 failed to address the root cause, demonstrating persistent RCE capability via `SimpleKVStore.persist()` in the allegedly "patched" v0.14.21+ environments.
+
+**Supporting Files:**
+* [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/auto-terminal-session.gif)
+* [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/auto-terminal-session.cast)
+* [Execution Log (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llamaindex-auto-execution-log.txt)
 
 ---
