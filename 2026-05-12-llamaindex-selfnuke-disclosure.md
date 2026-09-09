@@ -361,4 +361,9 @@ This section serves as the forensic artifacts for the JDP Security disclosure.
 * [Asciinema Recording (cast)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/auto-terminal-session.cast)
 * [Execution Log (txt)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/llamaindex-auto-execution-log.txt)
 
+<video width="100%" controls>
+  <source src="https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/auto-terminal-session.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 ---
