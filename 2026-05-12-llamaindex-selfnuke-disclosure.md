@@ -1,35 +1,43 @@
 ---
 date: 2026-05-12
-title: LlamaIndex - Path Traversal to Local File Inclusion and RCE
+title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
 ---
 <div style="display: flex; justify-content: space-between; align-items: center; background: #1a2332; padding: 10px 15px; border-radius: 6px; margin-bottom: 25px;">
   <span style="font-weight: bold; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">🛡️ JDP Security Research Archive</span>
   <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
 </div>
 
-> **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 and below)** are operating with a critical, unmitigated Remote Code Execution (RCE) and Permanent Denial of Service (DoS) vulnerability. Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented remediation was executed across **v0.14.20** and **v0.14.21**. Because no formal CVE was issued, legacy deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
+> **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 through v0.14.21+)** are operating with critical, unmitigated Arbitrary File Write vulnerabilities that enable Remote Code Execution (RCE) and Permanent Denial of Service (DoS). Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented component removal occurred across **v0.14.20** and **v0.14.21**. However, this silent update only removed the surface-level `dataset.py` sink while leaving the underlying `SimpleKVStore.persist()` path traversal sink unpatched. Because no formal CVE was issued, legacy and current deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
 
 ---
 
 # **SECURITY DISCLOSURE | JDP-2026-003**
-## **Infrastructure Compromise: Path Traversal and Code Injection in LlamaIndex — Insecure AI Orchestration**
+## **Infrastructure Compromise: Path Traversal to Arbitrary File Write and Code Injection in LlamaIndex — Insecure AI Orchestration**
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security  
 **Series:** JDP Security Research Series (Disclosure #3)  
 **Initial Disclosure Date:** March 27, 2026  
-**Target:** LlamaIndex | `llama-index-core` (v0.14.19 and below)  
+**Target:** LlamaIndex | `llama-index-core` (v0.14.19 through v0.14.21+)  
 **Case Number:** [Huntr ID: bb0b2efb-8069-4642-97ec-7060aed7a7b7](https://huntr.com/repos/run-llama/llama_index) (Report marked ‘N/A’ by vendor - requires Huntr account to view details)  
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
-**Status:** Officially Disputed / **Incomplete Silent Remediation** (Partial component removal in v0.14.20; `SimpleKVStore` remains vulnerable in v0.14.21+) 
+**Status:** Officially Disputed / **Unpatched Zero-Day** (`dataset.py` removed as collateral cleanup in v0.14.20; `SimpleKVStore` persistence vector remains unpatched in ALL versions)  
 
 ---
 
 ### **Executive Summary**
-This white paper documents a critical architectural flaw in **LlamaIndex**, an industry-standard AI orchestration framework. This research highlights a validation deficiency where the framework treats stochastic, untrusted Large Language Model (LLM) output as deterministic, high-privilege system commands—specifically regarding file path resolution.
+This white paper documents a critical architectural flaw in **LlamaIndex**, an industry-standard AI orchestration framework. This research highlights a systemic validation deficiency where the framework treats stochastic, untrusted Large Language Model (LLM) output or external agent inputs as deterministic, high-privilege system parameters—specifically regarding file path resolution.
 
-This oversight culminates in a full-chain vulnerability driven by Path Traversal (**CWE-22**) leading to Code Injection (**CWE-94**). I demonstrate how an AI agent can be manipulated into escaping its intended sandbox to physically overwrite its own host application's source code (referred to internally as the "Library Overwrite" vector). 
+This oversight culminates in a full-chain vulnerability driven by Path Traversal (**CWE-22**) leading to Arbitrary File Write (**CWE-73**) and Code Injection (**CWE-94**). I demonstrate how an AI agent can be manipulated via indirect prompt injection into escaping its intended sandbox to physically overwrite its own host application's source code (referred to internally as the "Library Overwrite" vector) or host configurations.
 
-Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. However, forensic analysis of the repository's git history reveals the vendor subsequently executed a coordinated code migration. Critically, while the `dataset.py` vector was silently removed, this undocumented remediation **failed to patch the underlying `SimpleKVStore` persistence vulnerability**, leaving users of v0.14.21+ persistently exposed while under the assumption their software is up to date. 
+Two distinct vulnerable execution sinks exist within the framework:
+1. **Directory Resolution Sink (`dataset.py`):** Present in `v0.14.19` and below.
+2. **Storage Persistence Sink (`SimpleKVStore.persist()`):** Present and unpatched across **all** framework versions (`v0.14.19` through `v0.14.21+`).
+
+Crucially, **both sinks provide an arbitrary file write primitive**. The ultimate security impact (RCE vs. DoS) is determined by the payload delivered into the execution path:
+* **Remote Code Execution (RCE):** Writing executable Python commands into module initialization files (e.g., `site-packages/llama_index/core/__init__.py`) or system execution paths (e.g., `/etc/cron.d/`).
+* **Permanent Denial of Service (DoS):** Overwriting module initialization files with JSON serializations or malformed data, inducing immediate, unrecoverable Python interpreter import panics during application boot.
+
+Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. Forensic analysis of the repository's git history subsequently revealed a silent code deletion: `dataset.py` was quietly removed in `v0.14.20` during a routine deprecation cleanup without a CVE assignment. Crucially, this undocumented update **failed to address the core `SimpleKVStore.persist()` traversal vulnerability**, leaving downstream enterprises in a false state of security.
 
 This research highlights the risks associated with **undocumented remediation** in the open-source supply chain: where a vulnerability is mitigated under the guise of routine maintenance without formal disclosure. This practice leaves the community in a "False Negative" state, where security tools fail to alert on active threats because no official CVE has been filed, exposing enterprise deployments to unmitigated risk.
 
@@ -38,31 +46,37 @@ This research highlights the risks associated with **undocumented remediation** 
 ### **Vulnerability Rating & CVSS Justification**
 **Final Score:** **10.0 (Critical)** **Vector String:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`
 
-* **Attack Vector (AV:N):** **Network.** The vulnerability is exploitable over the network as the framework is designed to ingest data/paths from remote LLMs or API-integrated web services that expose these orchestration functions.
-* **Attack Complexity (AC:L):** **Low.** Exploitation requires only simple path manipulation (Standard Traversal strings). No sophisticated timing or environment-specific conditions are required.
-* **Privileges Required (PR:N):** **None.** No authentication is required to trigger the vulnerable functions if the application logic allows for unauthenticated data ingestion (common in "Chat-with-your-data" implementations).
-* **Scope (S:C):** **Changed.** This is the most critical metric. The exploit allows a breach of the framework's operational boundary (the AI environment) to affect the underlying **Host Operating System** (overwriting system files, cron jobs, or library source code).
-* **Confidentiality, Integrity, Availability (C:H/I:H/A:H):** **High/Total.** * **Confidentiality:** Attacker can write files to exfiltrate system data.
-    * **Integrity:** Attacker can modify any file the service user has permission to write (Code Injection).
-    * **Availability:** The core library overwrite vector allows for a Permanent Denial of Service (DoS) by corrupting the library source.
+* **Attack Vector (AV:N):** **Network.** The vulnerability is exploitable over the network as the framework ingests data/paths from remote LLMs, prompt injections, or API-integrated web services that expose orchestration tools.
+* **Attack Complexity (AC:L):** **Low.** Exploitation requires simple directory traversal sequences (`../`). No complex timing, racing, or memory-layout manipulation is required.
+* **Privileges Required (PR:N):** **None.** Unauthenticated external inputs or indirect prompt injections can coerce the LLM agent into invoking the tool with malicious path parameters.
+* **Scope (S:C):** **Changed.** The exploit breaks out of the application's logical sandbox boundary to directly alter the underlying **Host Operating System** environment (modifying system files, scheduled tasks, or core library binaries).
+* **Confidentiality, Integrity, Availability (C:H/I:H/A:H):** **High/Total.**
+    * **Confidentiality:** Attacker can write files to manipulate application state, exfiltrate data, or execute host commands.
+    * **Integrity:** Attacker can overwrite any file accessible to the execution user context (Arbitrary File Write / Code Injection).
+    * **Availability:** Overwriting core library modules or configuration files leads to immediate and persistent service destruction.
 
 ---
 
-### **1. The Technical Sink: Unsanitized Path Resolution**
-The vulnerability lies in the framework's willingness to accept untrusted strings to define local filesystem directories.
+### **1. Technical Sinks: Unsanitized Path Resolution**
+The root flaw across the framework is the absence of canonical path validation (such as `os.path.abspath()` combined with strict root anchoring checks like `.is_relative_to()`) prior to filesystem I/O operations.
 
-#### **1.1 The Directory Sinks (v0.14.19)**
-The core vulnerability exists at the directory resolution level within `llama-index-core/llama_index/core/download/dataset.py`. The SDK performs a direct path cast of `local_dir_path` without anchoring or validation.
+#### **1.1 Unanchored Directory Sinks (`dataset.py` — Legacy v0.14.19)**
+Within `llama-index-core/llama_index/core/download/dataset.py`, path parameters are cast directly to `Path` objects without anchoring to a base directory sandbox:
 
 * **Sink A ([Line 64](https://github.com/run-llama/llama_index/blob/v0.14.19/llama-index-core/llama_index/core/download/dataset.py#L64)):**
     ```python
-    local_dir_path = Path(local_dir_path) # NO ANCHORING
+    local_dir_path = Path(local_dir_path) # NO PATH ANCHORING
     ```
 * **Sink B ([Line 137](https://github.com/run-llama/llama_index/blob/v0.14.19/llama-index-core/llama_index/core/download/dataset.py#L137)):**
     ```python
-    local_dir_path = Path(local_dir_path) # NO ANCHORING
+    local_dir_path = Path(local_dir_path) # NO PATH ANCHORING
     ```
-#### **1.2 Persistence Sink (v0.14.19)**
+
+> **Critical Update:** While the `dataset.py` sink was removed in v0.14.20, the underlying `SimpleKVStore.persist()` method remains vulnerable to the same unanchored path traversal. This is the primary unpatched sink in v0.14.21+.
+
+#### **1.2 Persistence Sink (`SimpleKVStore.persist()` — Active in ALL Versions)**
+Within `llama-index-core/llama_index/core/storage/kvstore/simple_kvstore.py`, the key-value persistence interface accepts a user- or agent-controlled `persist_path` parameter and writes data directly to disk without path sanitization:
+
 * **Sink C ([Line 43](https://github.com/run-llama/llama_index/blob/v0.14.19/llama-index-core/llama_index/core/storage/kvstore/simple_kvstore.py#L43)):**
     ```python
     def persist(
@@ -74,11 +88,11 @@ The core vulnerability exists at the directory resolution level within `llama-in
         if not fs.exists(dirpath):
             fs.makedirs(dirpath)
 
-        with fs.open(persist_path, "w") as f: # <--- THE SINK: No validation of persist_path
+        with fs.open(persist_path, "w") as f: # <--- CRITICAL SINK: Unvalidated persist_path
             f.write(json.dumps(self._collections_mappings))
     ```
 
-By passing a traversal string (e.g., `../../../../etc/cron.d/`), an attacker shifts the base directory. Any files written (including the `source_files` list) are subsequently deposited into the hijacked system path.
+By passing traversal strings (e.g., `../../../../usr/local/lib/python3.11/site-packages/llama_index/core/__init__.py`), an attacker forces the file writing routine outside the intended data directory.
 
 ### **Insufficient Security Boundaries: The Filename Registry**
 
@@ -91,16 +105,39 @@ During the disclosure process, it was suggested that the `DATASET_CLASS_FILENAME
 
 ---
 
-### **2. Exploitation Mechanics**
-Verified via forensic `.cast` recordings in an isolated environment.
+### **2. Exploitation Mechanics & Impact Matrix**
 
-#### **2.1 Core Library Overwrite (Permanent DoS/RCE)**
+Exploitation relies on abusing the framework as a "Confused Deputy." An attacker uses an indirect prompt injection to force the LLM agent into supplying a traversal path to the underlying tool routines.
+
+```
+[ Attacker / Prompt Payload ]
+             │
+             ▼ (Indirect Prompt Injection)
+[ LLM Agent / Orchestrator ]
+             │
+             ▼ (Unsanitized Tool Parameter: persist_path = "../../../__init__.py")
+[ Vulnerable Sink: SimpleKVStore.persist() ]
+             │
+             ▼ (Path Traversal / Unanchored Write)
+[ Host Filesystem / Python site-packages ]
+```
+
+#### **2.1 Arbitrary File Write Primitives**
+Both `dataset.py` and `SimpleKVStore.persist()` act as raw arbitrary file write primitives. The resulting security impact depends on the **payload structure** and **target location**:
+
+| Targeted Sink File | Written Payload | Resulting Impact | Technical Mechanism |
+| :--- | :--- | :--- | :--- |
+| `site-packages/llama_index/core/__init__.py` | Executable Python Code (e.g., `import os; os.system(...)`) | **Remote Code Execution (RCE)** | Code executes automatically whenever the host application or worker process imports `llama_index.core`. |
+| `site-packages/llama_index/core/__init__.py` | JSON Serialization (e.g., `{"store": ...}`) | **Permanent Denial of Service (DoS)** | Replaces valid Python code with JSON text, causing an immediate `SyntaxError` / import panic during runtime startup. |
+| `/etc/cron.d/malicious_job` | Shell Script / Cron Command | **Host RCE / Persistence** | Writes scheduled tasks directly into system daemon directories. |
+
+#### **2.2 Core Library Overwrite (Permanent DoS/RCE)**
 By targeting the core library's `__init__.py`, the exploit replaces executable Python code with malicious payloads.
 * **Permanent DoS:** Overwriting with JSON strings causes a cascading interpreter panic upon next load.
 * **RCE:** Overwriting with Python code results in immediate execution when the library is imported.
 * **Forensic Evidence:** `nuke-llama-core.cast`
 
-#### **2.2 Path Hijack RCE**
+#### **2.3 Path Hijack RCE**
 The `source_files` primitive allows writing arbitrary code payloads to high-privilege directories (e.g., cron jobs or shell profiles).
 * **Forensic Evidence:** `llama-nuke-3.cast`.
 
@@ -132,18 +169,28 @@ The library overwrite vector illustrates how AI agents can be coerced into alter
 
 ---
 
-### **4. Remediation Timeline & Undocumented Patching Strategy**
-The remediation timeline reveals a pattern of migrating vulnerable code out of the core library without public acknowledgment, masking the security fix within non-security updates.
+### **4. Forensic Timeline & Architectural Blindness**
 
-* **March 27, 2026:** **Initial Disclosure.** The report is officially disputed under the premise that the framework's registry acts as a security boundary.
-* **April 3, 2026:** **Code Deletion (Release [v0.14.20](https://github.com/run-llama/llama_index/releases/tag/v0.14.20)).**
-    * [Commit 7049c97d](https://github.com/run-llama/llama_index/commit/7049c97d): Documented as *"remaining cleanup, uv lock bump."* **Impact:** This commit entirely deleted the vulnerable `dataset.py` infrastructure identified in the PoC, patching the immediate vulnerability under the classification of routine maintenance.
-* **April 20, 2026:** **Logic Migration (Release [v0.14.21](https://github.com/run-llama/llama_index/releases/tag/v0.14.21)).**
-    * [Commit e8b22d9](https://github.com/run-llama/llama_index/commit/e8b22d9): Documented as *"Update llama-index-workflows dependency to >=2.14.0."* **Impact:** The logic for path sanitization and "data sinks" was migrated to the external `workflows` sub-package. By bumping the requirement to `v2.14.0+`, the secure path resolution logic was integrated back into the core framework without documenting a vulnerability in `llama-index-core`.
-* **May 3, 2026:** **Sub-Package Remediation.**
-    * [Commit 5191420](https://github.com/run-llama/llama_index/commit/5191420) (PR #21251): Documented as *"fix for typo in data_sinks."* **Impact:** This represents the formal remediation of the vulnerable `data_sinks` logic. By implementing the fix in the `workflows` sub-package ([v2.14.0](https://pypi.org/project/llama-index-workflows/2.14.0/)) and labeling it a typo, a formal security disclosure was avoided.
+A forensic audit of the `llama-index-core` repository clarifies the exact nature of the framework's evolution following the March 27 disclosure. The timeline reveals a failure to perform root-cause analysis, resulting in a persistent zero-day exposure.
+
+* **March 27, 2026:** **Initial Disclosure.** The report is officially disputed under the flawed premise that the framework's filename registry acts as an absolute security boundary.
+
+* **April 3, 2026 — Collateral Deprecation (Release [v0.14.20](https://github.com/run-llama/llama_index/releases/tag/v0.14.20)):**
+    * [Commit 7049c97d](https://github.com/run-llama/llama_index/commit/7049c97d): Documented as *"remaining cleanup, uv lock bump."* **Impact:** The vendor entirely removed `dataset.py` (261 lines deleted) during a routine sweep of legacy download modules. This eliminated the `dataset` RCE vector as collateral damage of framework maintenance, not as a documented security fix.
+
+* **April 7, 2026 — The "Data Sinks" Coincidence (PR #21251):**
+    * [Commit e8b22d9](https://github.com/run-llama/llama_index/commit/e8b22d9): Documented as *"fix for typo in data_sinks."* Due to the timing and AppSec nomenclature, this appeared to be a stealth migration of the vulnerable sink logic. However, lab recreation confirms this was merely a syntax fix (brackets and typos) inside an unrelated event-routing module. The `data_sinks.py` file was never moved — it remains in `llama_index/core/ingestion/data_sinks.py`.
+
+* **May 12, 2026 — Verification of Continued Exposure:**
+    * Live package inspection confirms `data_sinks.py` remains present and `SimpleKVStore.persist()` remains exploitable in v0.14.21+, contradicting the assumption that the v2.14.0+ dependency bump resolved the underlying path traversal.
+
+* **Present — Unpatched Root Cause:**
+    * `SimpleKVStore.persist()`: The core storage sink was **never patched**. The only subsequent modification to `simple_kvstore.py` was the addition of UTF-8 encoding (PR #21111). No path validation, `.resolve()`, or anchoring was ever introduced.
+
+**Conclusion:** The vendor did not execute a stealth remediation. They removed one vulnerable surface by coincidence, completely missed the primary persistence vector, and closed the report without issuing a CVE—leaving all enterprise users exposed.
 
 ---
+
 ### **5. Disclosure Timeline**
 
 **Actions Taken:**
@@ -155,15 +202,16 @@ The remediation timeline reveals a pattern of migrating vulnerable code out of t
 
 **Vendor Response:**
 - Classified the report as "N/A" (Not Applicable).
-- Remediated the vulnerability across subsequent versions (v0.14.20/v0.14.21) via code migration and refactoring without public CVE assignment.
+- Closed the ticket without action. The `dataset.py` vector was incidentally removed during routine deprecation, while the core `SimpleKVStore` vulnerability was ignored, leaving it as an unpatched zero-day across all subsequent releases without public CVE assignment.
 
 ---
+
 ### **Appendices**
 
 #### **Appendix 1: Forensic Proof & Exploitation Mechanics**
 
 **The Vulnerability: Architectural Collapse via CWE-22**
-The flaw is a classic Path Traversal (CWE-22) leading to Code Injection (CWE-94). By injecting traversal sequences (`../`) into dataset or storage parameters, an unauthenticated attacker can escape the intended directory sandbox and physically overwrite the Python interpreter's own source code.
+The flaw is a classic Path Traversal (CWE-22) leading to Arbitrary File Write (CWE-73) and Code Injection (CWE-94). By injecting traversal sequences (`../`) into dataset or storage parameters, an unauthenticated attacker can escape the intended directory sandbox and physically overwrite the Python interpreter's own source code.
 
 **The Target: site-packages**
 The primary exploit targets the core integrity of the library itself. By pointing the SDK sink at the host's `site-packages/llama_index/core/`, an attacker can overwrite the `__init__.py` file.
@@ -241,7 +289,7 @@ with patch("llama_index.core.download.dataset.get_file_content") as mock_get, \
 - Audit any unexpected file writes or modifications to Python's `site-packages` directory.
 
 **Immediate Mitigation:**
-1. **WARNING:** Upgrading to `llama-index-core >= 0.14.21` does **NOT** fully mitigate the `SimpleKVStore.persist()` vector. 
+1. **WARNING:** Upgrading to the latest version of `llama-index-core` provides **ZERO mitigation** for the `SimpleKVStore.persist()` vector. It remains a fully exploitable zero-day.
 2. You **MUST** implement a manual path validation wrapper (Appendix 2) regardless of your framework version.
 3. Run AI agents with strictly scoped, minimal filesystem permissions.
 
@@ -265,7 +313,33 @@ To verify this vulnerability:
 
 ---
 
-#### **Appendix 6: Forensic Recording Demonstration Breakdown (Chronological)**
+#### **Appendix 6: Live Package Inspection — Confirmation of Unpatched Sinks**
+
+The following terminal session demonstrates the live state of a sandbox environment running `llama-index-core` v0.14.21+ with `llama-index-workflows` v2.14.0 installed:
+
+```bash
+┌──(kali㉿kali)-[~/OWASP/GenAI-Red-Team-Lab/exploitation/llamaindex]
+└─$ podman exec llamaindex-sandbox find /usr/local/lib/python3.11/site-packages -name "*workflow*" -type d
+/usr/local/lib/python3.11/site-packages/llama_index/core/agent/workflow
+/usr/local/lib/python3.11/site-packages/llama_index/core/workflow
+/usr/local/lib/python3.11/site-packages/workflows
+/usr/local/lib/python3.11/site-packages/llama_agents/workflows
+/usr/local/lib/python3.11/site-packages/llama_index_workflows-2.14.0.dist-info
+
+┌──(kali㉿kali)-[~/OWASP/GenAI-Red-Team-Lab/exploitation/llamaindex]
+└─$ podman exec llamaindex-sandbox find /usr/local/lib/python3.11/site-packages -name "*data_sink*" -type f
+/usr/local/lib/python3.11/site-packages/llama_index/core/ingestion/__pycache__/data_sinks.cpython-311.pyc
+/usr/local/lib/python3.11/site-packages/llama_index/core/ingestion/data_sinks.py
+```
+
+**Analysis:**
+- **`data_sinks.py` present** — The ingestion pipeline's data sink module remains intact, indicating additional write sinks beyond `SimpleKVStore.persist()`.
+- **`llama_index_workflows-2.14.0.dist-info` present** — Confirms the v2.14.0+ requirement bump was applied, yet the core `SimpleKVStore` traversal remains unpatched.
+- **Workflow directories present** — The agent workflow subsystem is fully installed, providing multiple attack surfaces for LLM-driven path manipulation.
+
+---
+
+#### **Appendix 7: Forensic Recording Demonstration Breakdown (Chronological)**
 
 This section serves as the forensic artifacts for the JDP Security disclosure.
 
