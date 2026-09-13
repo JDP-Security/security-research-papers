@@ -127,9 +127,32 @@ In this scenario, the application logic dictates that the Vector Store should be
 
 The following sequence diagram illustrates how the trust boundary is violated. The application mistakenly extends the "Trusted Zone" to include the LLM's output, failing to realize the LLM is processing untrusted external data.
 
-<div align="center">
-  <img src="[https://mermaid.ink/img/pako:eNqNUktvwjAM_itWTiBhCIG2k3bCQ2_TRuIhR26aWK1NnDgNIMR_X0qBtmxH8CW_Z_vzl5CpiSDg0NqQfUFYW71dGWmO76XyF770_V1r6T172x02B4mS9Yc2nB3dE1Z8FmB_xIeDtw8v6k48iC63uFm8-mX8f90XQ2uN8qY1vH5WqfW-5F4L2dYQzF4Rk78K9iF5B6XpB8vK2C5A1S3uD2883-M7oF_kXU5jXw7qYQjS8x0tB0u1CqZSIbS7ZcM2-cZ-22NptCqH-sR0h6xW9T-U4q7G90o49LRSxM6rW0Vn81k7U4LhTPE0L_P8J6U4y_Msh5T2E4V38-JzFmU0g9l0mk7SBEKYTMg0j2YF5IumfHEDFwQ6Bf5EaEw4-QA1Z3Jj](https://mermaid.ink/img/pako:eNqNUktvwjAM_itWTiBhCIG2k3bCQ2_TRuIhR26aWK1NnDgNIMR_X0qBtmxH8CW_Z_vzl5CpiSDg0NqQfUFYW71dGWmO76XyF770_V1r6T172x02B4mS9Yc2nB3dE1Z8FmB_xIeDtw8v6k48iC63uFm8-mX8f90XQ2uN8qY1vH5WqfW-5F4L2dYQzF4Rk78K9iF5B6XpB8vK2C5A1S3uD2883-M7oF_kXU5jXw7qYQjS8x0tB0u1CqZSIbS7ZcM2-cZ-22NptCqH-sR0h6xW9T-U4q7G90o49LRSxM6rW0Vn81k7U4LhTPE0L_P8J6U4y_Msh5T2E4V38-JzFmU0g9l0mk7SBEKYTMg0j2YF5IumfHEDFwQ6Bf5EaEw4-QA1Z3Jj)" alt="Trust Boundary Failure Sequence Diagram" style="max-width: 100%; height: auto;" />
-</div>
+```text
+[ Attacker ]
+     │
+     │ 1. Embeds payload: "../../tmp/pwned"
+     ▼
+[ Untrusted Document (PDF / Web) ]
+     │
+     │ 2. Ingest document for RAG
+     ▼
+[ AI Agent (LLM) ]
+     │
+     │ 3. Returns payload as "Project Name"
+     ▼
+=========================================================
+ ⚠️ TRUST BOUNDARY FAILURE
+    Backend implicitly trusts LLM output as safe routing
+=========================================================
+     │
+     │ 4. storage_context.persist(persist_dir="../../tmp")
+     ▼
+[ App Backend (LlamaIndex) ]
+     │
+     │ 5. Arbitrary directory created outside sandbox
+     ▼
+[ Host Filesystem (OS) ]
+```
 
 #### **1.6 Threat Modeling & Impact Analysis**
 
