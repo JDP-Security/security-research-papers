@@ -127,22 +127,30 @@ In this scenario, the application logic dictates that the Vector Store should be
 
 The following sequence diagram illustrates how the trust boundary is violated. The application mistakenly extends the "Trusted Zone" to include the LLM's output, failing to realize the LLM is processing untrusted external data.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Attacker
-    participant ExternalSource as Untrusted Document (PDF/Web)
-    participant LLM as AI Agent (LLM)
-    participant Backend as App Backend (StorageContext)
-    participant OS as Filesystem
-
-    Attacker->>ExternalSource: Embeds payload: "../../tmp/pwned"
-    ExternalSource->>LLM: Ingest document for RAG
-    LLM-->>Backend: Returns payload as "Project Name"
-    Note over Backend: Trust Boundary Failure<br/>Backend implicitly trusts LLM output
-    Backend->>OS: persist(persist_dir="./data/../../tmp/pwned")
-    OS-->>Attacker: Arbitrary directory created outside sandbox
-```
+[ Attacker ]
+     │
+     │ 1. Embeds payload: "../../tmp/pwned"
+     ▼
+[ Untrusted Document (PDF / Web) ]
+     │
+     │ 2. Ingest document for RAG
+     ▼
+[ AI Agent (LLM) ]
+     │
+     │ 3. Returns payload as "Project Name"
+     ▼
+=========================================================
+ ⚠️ TRUST BOUNDARY FAILURE
+    Backend implicitly trusts LLM output as safe routing
+=========================================================
+     │
+     │ 4. storage_context.persist(persist_dir="../../tmp")
+     ▼
+[ App Backend (LlamaIndex) ]
+     │
+     │ 5. Arbitrary directory created outside sandbox
+     ▼
+[ Host Filesystem (OS) ]
 
 #### **1.6 Threat Modeling & Impact Analysis**
 
