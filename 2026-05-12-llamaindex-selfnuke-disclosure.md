@@ -94,6 +94,14 @@ Within `llama-index-core/llama_index/core/storage/kvstore/simple_kvstore.py`, th
 
 By passing traversal strings (e.g., `../../../../usr/local/lib/python3.11/site-packages/llama_index/core/__init__.py`), an attacker forces the file writing routine outside the intended data directory.
 
+#### **1.3 The API Wrapper: `StorageContext.persist()`**
+While `SimpleKVStore.persist()` contains the unanchored path resolution sink, the vulnerability is exposed in production applications via `StorageContext.persist()`. Developers rarely instantiate the key-value store directly; instead, they manage index state using the `StorageContext` wrapper.
+
+When a developer or AI agent saves state, they execute:
+`storage_context.persist(persist_dir=untrusted_input)`
+
+Because `StorageContext` passes caller-supplied paths directly to its underlying key-value store without boundary checking, any application saving index state from an untrusted context (e.g., a user session ID or an LLM-generated directory name) is instantly vulnerable to directory traversal. This transforms a low-level framework bug into a highly exploitable real-world vulnerability.
+
 ### **Insufficient Security Boundaries: The Filename Registry**
 
 During the disclosure process, it was suggested that the `DATASET_CLASS_FILENAME_REGISTRY` prevented traversal. This assessment is architecturally inaccurate for the following reasons:
