@@ -33,7 +33,9 @@ Two distinct vulnerable execution sinks exist within the framework:
 1. **Directory Resolution Sink (`dataset.py`):** Present in `v0.14.19` and below.
 2. **Storage Persistence Sink (`SimpleKVStore.persist()`):** Present and unpatched across **all** framework versions (`v0.14.19` through `v0.14.21+`).
 
-Crucially, **both sinks provide an arbitrary file write primitive**. The ultimate security impact (RCE vs. DoS) is determined by the payload delivered into the execution path:
+> Crucially, **both sinks provide arbitrary file write primitives** — the ability to write to an attacker-chosen location. The ultimate security impact (RCE vs. DoS) is determined by the payload content and the write primitive:
+> - `dataset.py` provides a **raw arbitrary-content write primitive** (direct RCE when writing executable Python or cron jobs).
+> - `SimpleKVStore.persist()` provides a **JSON-serialized write primitive** (primarily used for persistent DoS, config corruption, or as a secondary chaining step).
 * **Remote Code Execution (RCE):** Writing executable Python commands into module initialization files (e.g., `site-packages/llama_index/core/__init__.py`) or system execution paths (e.g., `/etc/cron.d/`).
 * **Permanent Denial of Service (DoS):** Overwriting module initialization files with JSON serializations or malformed data, inducing immediate, unrecoverable Python interpreter import panics during application boot.
 
@@ -47,6 +49,7 @@ This research highlights the risks associated with **undocumented remediation** 
 **Final Score:** **10.0 (Critical)** **Vector String:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`
 
 * **Attack Vector (AV:N):** **Network.** The vulnerability is exploitable over the network as the framework ingests data/paths from remote LLMs, prompt injections, or API-integrated web services that expose orchestration tools.
+> **LlamaIndex is, by definition, an LLM orchestration framework. The LLM agent is a core component of the target environment, not an external precondition. The network vector (`AV:N`) refers to the network-facing application or API that invokes the orchestration layer.**
 * **Attack Complexity (AC:L):** **Low.** Exploitation requires simple directory traversal sequences (`../`). No complex timing, racing, or memory-layout manipulation is required.
 * **Privileges Required (PR:N):** **None.** Unauthenticated external inputs or indirect prompt injections can coerce the LLM agent into invoking the tool with malicious path parameters.
 * **Scope (S:C):** **Changed.** The exploit breaks out of the application's logical sandbox boundary to directly alter the underlying **Host Operating System** environment (modifying system files, scheduled tasks, or core library binaries).
@@ -227,6 +230,8 @@ Both `dataset.py` and `SimpleKVStore.persist()` act as raw arbitrary file write 
 | `site-packages/llama_index/core/__init__.py` | JSON Serialization (e.g., `{"store": ...}`) | **Permanent Denial of Service (DoS)** | Replaces valid Python code with JSON text, causing an immediate `SyntaxError` / import panic during runtime startup. |
 | `/etc/cron.d/malicious_job` | Shell Script / Cron Command | **Host RCE / Persistence** | Writes scheduled tasks directly into system daemon directories. |
 
+> **Important distinction:** `SimpleKVStore.persist()` writes JSON-serialized data, not arbitrary raw content. It allows an attacker to choose *where* the write occurs, but the *content* is structured JSON. Direct RCE via this sink requires either a chained exploit (e.g., writing JSON that is later interpreted by a vulnerable parser) or a target file where JSON content can trigger code execution. The raw RCE vector is `dataset.py` (Stage 0 only).
+
 #### **2.2 Core Library Overwrite (Permanent DoS/RCE)**
 By targeting the core library's `__init__.py`, the exploit replaces executable Python code with malicious payloads.
 * **Permanent DoS:** Overwriting with JSON strings causes a cascading interpreter panic upon next load.
@@ -273,6 +278,42 @@ A forensic audit of the `llama-index-core` repository clarifies the exact nature
 
 * **April 3, 2026 — Collateral Deprecation (Release [v0.14.20](https://github.com/run-llama/llama_index/releases/tag/v0.14.20)):**
     * [Commit 7049c97d](https://github.com/run-llama/llama_index/commit/7049c97d): Documented as *"remaining cleanup, uv lock bump."* **Impact:** The vendor entirely removed `dataset.py` (261 lines deleted) during a routine sweep of legacy download modules. This eliminated the `dataset` RCE vector as collateral damage of framework maintenance, not as a documented security fix.
+ 
+**Security-Relevance Evidence for Commit `7049c97d`:**
+
+The commit message (`"remaining cleanup, uv lock bump"`) does not mention security, a CVE, or a deprecation rationale. However, forensic audit confirms the commit removed the **exact file** that was referenced in the Huntr disclosure:
+
+- **File removed:** `llama_index/core/download/dataset.py` (261 lines)
+- **Vulnerable functions removed:**
+  - `download_llama_dataset()`
+  - `download_dataset_and_source_files()`
+- **Vulnerable sinks removed:**
+  - `local_dir_path = Path(local_dir_path)` at line 64
+  - `local_dir_path = Path(local_dir_path)` at line 137
+  - `source_files_dir_path` used as an unanchored write destination
+- **Why this is security-relevant, not routine cleanup:**
+  1. The removed file is the **same module cited in the Huntr report** (`download/dataset.py`).
+  2. The commit message contains **no security advisory**, no CVE, and no deprecation notice.
+  3. No replacement API or migration path was provided.
+  4. The underlying root cause — `SimpleKVStore.persist()` accepting unvalidated `persist_path` — was **not modified** in the same commit or any subsequent release.
+  5. The removal occurred **days after the disclosure was filed**, matching the classic "shadow patch" pattern.
+
+**Representative diff (forensic reconstruction):**
+
+```diff
+- llama-index-core/llama_index/core/download/dataset.py   | 261 ----------
+- 1 file changed, 261 deletions(-)
+- deleted file: llama_index/core/download/dataset.py
+- @@ -1,261 +0,0 @@
+- -def download_llama_dataset(...):
+- -    local_dir_path = Path(local_dir_path)   # NO PATH ANCHORING
+- -    ...
+- -def download_dataset_and_source_files(...):
+- -    local_dir_path = Path(local_dir_path)   # NO PATH ANCHORING
+- -    ...
+```
+
+**Conclusion:** The commit removed the only publicly demonstrated RCE surface without acknowledging the vulnerability, without fixing the underlying storage sink, and without assigning a CVE.
 
 * **April 7, 2026 — The "Data Sinks" Coincidence (PR #21251):**
     * [Commit e8b22d9](https://github.com/run-llama/llama_index/commit/e8b22d9): Documented as *"fix for typo in data_sinks."* Due to the timing and AppSec nomenclature, this appeared to be a stealth migration of the vulnerable sink logic. However, lab recreation confirms this was merely a syntax fix (brackets and typos) inside an unrelated event-routing module. The `data_sinks.py` file was never moved — it remains in `llama_index/core/ingestion/data_sinks.py`.
