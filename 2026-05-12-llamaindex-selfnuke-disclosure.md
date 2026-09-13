@@ -154,7 +154,7 @@ When utilizing orchestrators like LlamaIndex or LangChain without explicit archi
 | **Arbitrary File Write** | Write access to system `/tmp` | Staging malicious files or overwriting shared resources outside the intended sandbox container. | LLM02: Insecure Output Handling |
 | **Remote Code Execution (RCE)** | Write access to `/etc/cron.d` or web roots | Writing a cron job or a `.py` module that is later executed by the system or application. | LLM02: Insecure Output Handling |
 
-> **Security Takeaway for Students:** Never treat an LLM as a sanitization filter. Treat LLM output traversing to filesystem operations with the exact same suspicion as direct HTTP POST data from an unauthenticated user.
+> **Security Takeaway:** Never treat an LLM as a sanitization filter. Treat LLM output traversing to filesystem operations with the exact same suspicion as direct HTTP POST data from an unauthenticated user.
 
 #### **1.7 Spot the Vulnerability**
 
