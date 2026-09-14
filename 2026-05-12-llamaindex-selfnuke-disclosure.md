@@ -7,7 +7,7 @@ title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
   <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
 </div>
 
-> **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 through v0.14.21+)** are operating with critical, unmitigated Arbitrary File Write vulnerabilities that enable Remote Code Execution (RCE) and Permanent Denial of Service (DoS). Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented component removal occurred across **v0.14.20** and **v0.14.21**. However, this silent update merely removed the surface-level `dataset.py` utility module. It completely missed the identical path traversal vulnerability residing deeper in the framework's core storage architecture, leaving `SimpleKVStore.persist()` unpatched. Because no formal CVE was issued, legacy and current deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
+> **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 through v0.14.21+)** are operating with critical, unmitigated Arbitrary File Write vulnerabilities that enable Remote Code Execution (RCE) and Permanent Denial of Service (DoS). Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented component removal occurred **in v0.14.20** (with an unrelated dependency bump in v0.14.21). However, this silent update merely removed the surface-level `dataset.py` utility module. It completely missed the **same class of unanchored path traversal vulnerability** residing deeper in the framework's core storage architecture, leaving `SimpleKVStore.persist()` unpatched. Because no formal CVE was issued, legacy and current deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
 
 ---
 
@@ -47,6 +47,7 @@ This research highlights the risks associated with **undocumented remediation** 
 
 ### **Vulnerability Rating & CVSS Justification**
 **Final Score:** **10.0 (Critical)** **Vector String:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`
+> *CVSS 10.0 assumes a network-exposed LLM orchestration service with write access to `site-packages` or `/etc/cron.d` and no filesystem sandbox. In a more restricted environment (e.g., container with read-only filesystem), the effective score would be lower.*
 
 * **Attack Vector (AV:N):** **Network.** The vulnerability is exploitable over the network as the framework ingests data/paths from remote LLMs, prompt injections, or API-integrated web services that expose orchestration tools.
 > **LlamaIndex is, by definition, an LLM orchestration framework. The LLM agent is a core component of the target environment, not an external precondition. The network vector (`AV:N`) refers to the network-facing application or API that invokes the orchestration layer.**
@@ -296,7 +297,7 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
   2. The commit message contains **no security advisory**, no CVE, and no deprecation notice.
   3. No replacement API or migration path was provided.
   4. The underlying root cause — `SimpleKVStore.persist()` accepting unvalidated `persist_path` — was **not modified** in the same commit or any subsequent release.
-  5. The removal occurred **days after the disclosure was filed**, matching the classic "shadow patch" pattern.
+  5. The removal occurred **approximately one week after the disclosure was filed** (disclosure: March 27; commit: April 3), matching the classic "shadow patch" pattern.
 
 **Representative diff (forensic reconstruction):**
 
