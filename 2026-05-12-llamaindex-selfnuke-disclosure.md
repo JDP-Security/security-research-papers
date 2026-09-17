@@ -9,6 +9,14 @@ title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
 
 > **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 through v0.14.21+)** are operating with critical, unmitigated Arbitrary File Write vulnerabilities that enable Remote Code Execution (RCE) and Permanent Denial of Service (DoS). Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented component removal occurred **in the source repository for v0.14.20** (with an unrelated dependency bump in v0.14.21). However, the published **PyPI package** `llama-index-core==0.14.20` was built **before** the deletion commit and **still ships `dataset.py`**. The actual removal from PyPI distributions does not occur until **v0.14.21**. This silent update also completely missed the **same class of unanchored path traversal vulnerability** residing deeper in the framework's core storage architecture, leaving `SimpleKVStore.persist()` unpatched. Because no formal CVE was issued, legacy and current deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
 
+### **Executive Summary at a Glance**
+
+- **What's affected:** All versions of `llama-index-core` from `v0.14.19` through `v0.14.21+`. The `SimpleKVStore.persist()` storage sink is vulnerable in **every** release. Additionally, the `dataset.py` RCE vector remains present in the PyPI `0.14.20` wheel despite being removed from the source repository.
+
+- **What an attacker can do:** Through a crafted indirect prompt injection or direct API call, an attacker can coerce the AI agent into writing files outside its intended sandbox — leading to **Remote Code Execution (RCE)** or **Permanent Denial of Service (DoS)** by overwriting core Python library files (e.g., `site-packages/llama_index/core/__init__.py`).
+
+- **What to do immediately:** Implement manual **path anchoring** (Appendix 2) around every call to `SimpleKVStore.persist()` or `StorageContext.persist()`. Do **not** rely on upgrading to the latest version — the storage vector remains unpatched in all releases. Run AI agents with strictly scoped filesystem permissions.
+
 ---
 
 # **SECURITY DISCLOSURE | JDP-2026-003**
