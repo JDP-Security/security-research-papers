@@ -320,8 +320,6 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
 > **PyPI Package Drift vs. Source Repository**
 > While GitHub repository tags associate the removal of `dataset.py` with version `v0.14.20` (commit `7049c97d`), the published PyPI package `llama-index-core==0.14.20` was built prior to the commit merging into the release build pipeline. Consequently, systems installing `llama-index-core==0.14.20` via PyPI remain fully vulnerable to the remote code execution vector. The removal only takes effect in published package distributions starting with version `0.14.21`.
 
-**Conclusion:** The vendor removed the `dataset.py` surface from the source repository without a formal security advisory, a CVE, or a migration notice. Whether this removal was deliberate security hardening or collateral cleanup cannot be definitively established from the public commit history. Regardless, the underlying `SimpleKVStore.persist()` vector remained unpatched in all published versions, and the PyPI package for v0.14.20 still shipped the vulnerable `dataset.py`. The absence of a CVE and the lack of user notification left downstream adopters without actionable guidance, a practice that undermines responsible disclosure norms and the security community's ability to protect enterprise deployments.
-
 * **April 7, 2026 — The "Data Sinks" Coincidence (PR #21251):**
     * [Commit e8b22d9](https://github.com/run-llama/llama_index/commit/e8b22d9): Documented as *"fix for typo in data_sinks."* Due to the timing and AppSec nomenclature, this appeared to be a stealth migration of the vulnerable sink logic. However, lab recreation confirms this was merely a syntax fix (brackets and typos) inside an unrelated event-routing module. The `data_sinks.py` file was never moved — it remains in `llama_index/core/ingestion/data_sinks.py`.
 
@@ -331,7 +329,7 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
 * **Present — Unpatched Root Cause:**
     * `SimpleKVStore.persist()`: The core storage sink was **never patched**. The only subsequent modification to `simple_kvstore.py` was the addition of UTF-8 encoding (PR #21111). No path validation, `.resolve()`, or anchoring was ever introduced.
 
-**Conclusion:** The vendor did not execute a stealth remediation. They removed one vulnerable surface by coincidence, completely missed the primary persistence vector, and closed the report without issuing a CVE—leaving all enterprise users exposed.
+**Conclusion:** The vendor removed the `dataset.py` surface from the source repository without a formal security advisory, a CVE, or a migration notice. Whether this removal was deliberate security hardening or collateral cleanup cannot be definitively established from the public commit history. Regardless, the underlying `SimpleKVStore.persist()` vector remained unpatched in all published versions, and the PyPI package for v0.14.20 still shipped the vulnerable `dataset.py`. The absence of a CVE and the lack of user notification left downstream adopters without actionable guidance, a practice that undermines responsible disclosure norms and the security community's ability to protect enterprise deployments.
 
 ---
 
