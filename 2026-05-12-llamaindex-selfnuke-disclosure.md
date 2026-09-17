@@ -7,7 +7,7 @@ title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
   <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
 </div>
 
-> **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 through v0.14.21+)** are operating with critical, unmitigated Arbitrary File Write vulnerabilities that enable Remote Code Execution (RCE) and Permanent Denial of Service (DoS). Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented component removal occurred **in v0.14.20** (with an unrelated dependency bump in v0.14.21). However, this silent update merely removed the surface-level `dataset.py` utility module. It completely missed the **same class of unanchored path traversal vulnerability** residing deeper in the framework's core storage architecture, leaving `SimpleKVStore.persist()` unpatched. Because no formal CVE was issued, legacy and current deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
+> **⚠️ SECURITY ADVISORY:** Organizations utilizing **LlamaIndex (`llama-index-core` v0.14.19 through v0.14.21+)** are operating with critical, unmitigated Arbitrary File Write vulnerabilities that enable Remote Code Execution (RCE) and Permanent Denial of Service (DoS). Despite this finding being initially classified by the vendor as "Not Applicable," forensic audit confirms an undocumented component removal occurred **in the source repository for v0.14.20** (with an unrelated dependency bump in v0.14.21). However, the published **PyPI package** `llama-index-core==0.14.20` was built **before** the deletion commit and **still ships `dataset.py`**. The actual removal from PyPI distributions does not occur until **v0.14.21**. This silent update also completely missed the **same class of unanchored path traversal vulnerability** residing deeper in the framework's core storage architecture, leaving `SimpleKVStore.persist()` unpatched. Because no formal CVE was issued, legacy and current deployments remain invisible to enterprise Software Composition Analysis (SCA) scanners (e.g., Snyk, Dependabot), creating a persistent supply chain risk.
 
 ---
 
@@ -20,7 +20,7 @@ title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
 **Target:** LlamaIndex | `llama-index-core` (v0.14.19 through v0.14.21+)  
 **Case Number:** [Huntr ID: bb0b2efb-8069-4642-97ec-7060aed7a7b7](https://huntr.com/repos/run-llama/llama_index) (Report marked ‘N/A’ by vendor - requires Huntr account to view details)  
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
-**Status:** Officially Disputed / **Unpatched Zero-Day** (`dataset.py` removed as collateral cleanup in v0.14.20; `SimpleKVStore` persistence vector remains unpatched in ALL versions)  
+**Status:** Officially Disputed / **Unpatched Zero-Day** (`dataset.py` removed from source in v0.14.20, but PyPI 0.14.20 still ships with `dataset.py` — actual PyPI removal in v0.14.21; `SimpleKVStore` persistence vector remains unpatched in ALL versions)  
 
 ---
 
@@ -76,7 +76,7 @@ Within `llama-index-core/llama_index/core/download/dataset.py`, path parameters 
     local_dir_path = Path(local_dir_path) # NO PATH ANCHORING
     ```
 
-> **Critical Update:** While the `dataset.py` sink was removed in v0.14.20, the underlying `SimpleKVStore.persist()` method remains vulnerable to the same unanchored path traversal. This is the primary unpatched sink in v0.14.21+.
+> **Critical Update:** While the `dataset.py` sink was removed from the **source repository** in v0.14.20, the **PyPI package** `llama-index-core==0.14.20` was built **before** that commit and **still ships `dataset.py`**. The sink is only truly absent from PyPI distributions starting in **v0.14.21**. Regardless, the underlying `SimpleKVStore.persist()` method remains vulnerable to the unanchored path traversal in ALL versions.
 
 #### **1.2 Persistence Sink (`SimpleKVStore.persist()` — Active in ALL Versions)**
 Within `llama-index-core/llama_index/core/storage/kvstore/simple_kvstore.py`, the key-value persistence interface accepts a user- or agent-controlled `persist_path` parameter and writes data directly to disk without path sanitization:
@@ -231,7 +231,7 @@ Both `dataset.py` and `SimpleKVStore.persist()` act as raw arbitrary file write 
 | `site-packages/llama_index/core/__init__.py` | JSON Serialization (e.g., `{"store": ...}`) | **Permanent Denial of Service (DoS)** | Replaces valid Python code with JSON text, causing an immediate `SyntaxError` / import panic during runtime startup. |
 | `/etc/cron.d/malicious_job` | Shell Script / Cron Command | **Host RCE / Persistence** | Writes scheduled tasks directly into system daemon directories. |
 
-> **Important distinction:** `SimpleKVStore.persist()` writes JSON-serialized data, not arbitrary raw content. It allows an attacker to choose *where* the write occurs, but the *content* is structured JSON. Direct RCE via this sink requires either a chained exploit (e.g., writing JSON that is later interpreted by a vulnerable parser) or a target file where JSON content can trigger code execution. The raw RCE vector is `dataset.py` (Stage 0 only).
+> **Important distinction:** `SimpleKVStore.persist()` writes JSON-serialized data, not arbitrary raw content. It allows an attacker to choose *where* the write occurs, but the *content* is structured JSON. Direct RCE via this sink requires either a chained exploit (e.g., writing JSON that is later interpreted by a vulnerable parser) or a target file where JSON content can trigger code execution. The raw RCE vector is `dataset.py` (Stages 0-1; present in PyPI 0.14.20 due to artifact drift, absent from PyPI 0.14.21).
 
 #### **2.2 Core Library Overwrite (Permanent DoS/RCE)**
 By targeting the core library's `__init__.py`, the exploit replaces executable Python code with malicious payloads.
@@ -277,8 +277,11 @@ A forensic audit of the `llama-index-core` repository clarifies the exact nature
 
 * **March 27, 2026:** **Initial Disclosure.** The report is officially disputed under the flawed premise that the framework's filename registry acts as an absolute security boundary.
 
-* **April 3, 2026 — Collateral Deprecation (Release [v0.14.20](https://github.com/run-llama/llama_index/releases/tag/v0.14.20)):**
-    * [Commit 7049c97d](https://github.com/run-llama/llama_index/commit/7049c97d): Documented as *"remaining cleanup, uv lock bump."* **Impact:** The vendor entirely removed `dataset.py` (261 lines deleted) during a routine sweep of legacy download modules. This eliminated the `dataset` RCE vector as collateral damage of framework maintenance, not as a documented security fix.
+* **April 3, 2026 — Collateral Deprecation in Source (v0.14.20 tag):**
+    * [Commit 7049c97d](https://github.com/run-llama/llama_index/commit/7049c97d): Documented as *"remaining cleanup, uv lock bump."* **Impact:** The vendor removed `dataset.py` (261 lines deleted) from the **GitHub repository**.
+    * **PyPI Artifact Drift:** The published `llama-index-core==0.14.20` wheel was built **before** this commit. Therefore, systems installing v0.14.20 from PyPI still receive the vulnerable `dataset.py`.
+    * The RCE vector was **not** actually eliminated in the distributed v0.14.20 package — it only disappears in PyPI v0.14.21.
+
  
 **Security-Relevance Evidence for Commit `7049c97d`:**
 
@@ -314,7 +317,10 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
 - -    ...
 ```
 
-**Conclusion:** The commit removed the only publicly demonstrated RCE surface without acknowledging the vulnerability, without fixing the underlying storage sink, and without assigning a CVE.
+> **PyPI Package Drift vs. Source Repository**
+> While GitHub repository tags associate the removal of `dataset.py` with version `v0.14.20` (commit `7049c97d`), the published PyPI package `llama-index-core==0.14.20` was built prior to the commit merging into the release build pipeline. Consequently, systems installing `llama-index-core==0.14.20` via PyPI remain fully vulnerable to the remote code execution vector. The removal only takes effect in published package distributions starting with version `0.14.21`.
+
+**Conclusion:** The vendor removed the `dataset.py` surface from the source repository without a formal security advisory, a CVE, or a migration notice. Whether this removal was deliberate security hardening or collateral cleanup cannot be definitively established from the public commit history. Regardless, the underlying `SimpleKVStore.persist()` vector remained unpatched in all published versions, and the PyPI package for v0.14.20 still shipped the vulnerable `dataset.py`. The absence of a CVE and the lack of user notification left downstream adopters without actionable guidance, a practice that undermines responsible disclosure norms and the security community's ability to protect enterprise deployments.
 
 * **April 7, 2026 — The "Data Sinks" Coincidence (PR #21251):**
     * [Commit e8b22d9](https://github.com/run-llama/llama_index/commit/e8b22d9): Documented as *"fix for typo in data_sinks."* Due to the timing and AppSec nomenclature, this appeared to be a stealth migration of the vulnerable sink logic. However, lab recreation confirms this was merely a syntax fix (brackets and typos) inside an unrelated event-routing module. The `data_sinks.py` file was never moved — it remains in `llama_index/core/ingestion/data_sinks.py`.
@@ -460,6 +466,21 @@ To verify this vulnerability:
    pip install llama-index-core==0.14.19
    ```
 
+1b. Verify the PyPI artifact drift for v0.14.20:
+
+   ```bash
+   pip install llama-index-core==0.14.20
+   python -c "import llama_index.core.download.dataset; print('dataset.py EXISTS in PyPI 0.14.20')"
+   ```
+
+   Expected output:
+
+   ```
+   dataset.py EXISTS in PyPI 0.14.20
+   ```
+
+   This demonstrates that the source commit did not make it into the published wheel.
+
 2. Run the PoC scripts provided in this report (`redemption_poc_v2.py`, `exploit.py`)
 
 3. Check for:
@@ -597,7 +618,7 @@ This section serves as the forensic artifacts for the JDP Security disclosure.
 ##### 6. Auto-Pilot Patch Bypass (auto-terminal-session)
 * **Target Environment:** LlamaIndex (`llama-index-core` v0.14.19, v0.14.20, and v0.14.21+)
 * **Execution Method:** **Multi-Stage Vulnerability Progression**
-* **Summary:** An automated walkthrough proving that the vendor's silent removal of `dataset.py` in v0.14.20 failed to address the root cause, demonstrating persistent RCE capability via `SimpleKVStore.persist()` in the allegedly "patched" v0.14.21+ environments.
+* **Summary:** An automated walkthrough proving that the vendor's silent removal of `dataset.py` **in the source repository** for v0.14.20 did **not** affect the PyPI package for that version. RCE remains live in v0.14.20 (PyPI) and only closes in v0.14.21. Additionally, `SimpleKVStore.persist()` remains exploitable in ALL versions.
 
 **Supporting Files:**
 * [Animated Visual (gif)](https://raw.githubusercontent.com/JDP-Security/security-research-media/main/assets/LLI/auto-terminal-session.gif)
