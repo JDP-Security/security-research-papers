@@ -30,7 +30,7 @@ This white paper documents a critical architectural flaw in **LlamaIndex**, an i
 This oversight culminates in a full-chain vulnerability driven by Path Traversal (**CWE-22**) leading to Arbitrary File Write (**CWE-73**) and Code Injection (**CWE-94**). I demonstrate how an AI agent can be manipulated via indirect prompt injection into escaping its intended sandbox to physically overwrite its own host application's source code (referred to internally as the "Library Overwrite" vector) or host configurations.
 
 Two distinct vulnerable execution sinks exist within the framework:
-1. **Directory Resolution Sink (`dataset.py`):** Present in `v0.14.19` and below.
+1. **Directory Resolution Sink (`dataset.py`):** Present in `v0.14.19` and PyPI `0.14.20` (due to artifact drift); absent from PyPI starting in `v0.14.21`.
 2. **Storage Persistence Sink (`SimpleKVStore.persist()`):** Present and unpatched across **all** framework versions (`v0.14.19` through `v0.14.21+`).
 
 > Crucially, **both sinks provide arbitrary file write primitives** — the ability to write to an attacker-chosen location. The ultimate security impact (RCE vs. DoS) is determined by the payload content and the write primitive:
@@ -39,7 +39,7 @@ Two distinct vulnerable execution sinks exist within the framework:
 * **Remote Code Execution (RCE):** Writing executable Python commands into module initialization files (e.g., `site-packages/llama_index/core/__init__.py`) or system execution paths (e.g., `/etc/cron.d/`).
 * **Permanent Denial of Service (DoS):** Overwriting module initialization files with JSON serializations or malformed data, inducing immediate, unrecoverable Python interpreter import panics during application boot.
 
-Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. Forensic analysis of the repository's git history subsequently revealed a silent code deletion: `dataset.py` was quietly removed in `v0.14.20` during a routine deprecation cleanup without a CVE assignment. Crucially, this undocumented update **failed to address the core `SimpleKVStore.persist()` traversal vulnerability**, leaving downstream enterprises in a false state of security.
+Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. Forensic analysis of the repository’s git history subsequently revealed a silent code deletion: dataset.py was quietly removed from the source repository in v0.14.20 during a routine deprecation cleanup without a CVE assignment. However, the PyPI package for v0.14.20 was built before that commit and still ships the vulnerable file. Crucially, this undocumented update **failed to address the core `SimpleKVStore.persist()` traversal vulnerability**, leaving downstream enterprises in a false state of security.
 
 This research highlights the risks associated with **undocumented remediation** in the open-source supply chain: where a vulnerability is mitigated under the guise of routine maintenance without formal disclosure. This practice leaves the community in a "False Negative" state, where security tools fail to alert on active threats because no official CVE has been filed, exposing enterprise deployments to unmitigated risk.
 
@@ -64,7 +64,7 @@ This research highlights the risks associated with **undocumented remediation** 
 ### **1. Technical Sinks: Unsanitized Path Resolution**
 The root flaw across the framework is the absence of canonical path validation (such as `os.path.abspath()` combined with strict root anchoring checks like `.is_relative_to()`) prior to filesystem I/O operations.
 
-#### **1.1 Unanchored Directory Sinks (`dataset.py` — Legacy v0.14.19)**
+#### **1.1 Unanchored Directory Sinks (`dataset.py` — Legacy v0.14.19, still present in PyPI 0.14.20)**
 Within `llama-index-core/llama_index/core/download/dataset.py`, path parameters are cast directly to `Path` objects without anchoring to a base directory sandbox:
 
 * **Sink A ([Line 64](https://github.com/run-llama/llama_index/blob/v0.14.19/llama-index-core/llama_index/core/download/dataset.py#L64)):**
@@ -287,7 +287,7 @@ A forensic audit of the `llama-index-core` repository clarifies the exact nature
 
 The commit message (`"remaining cleanup, uv lock bump"`) does not mention security, a CVE, or a deprecation rationale. However, forensic audit confirms the commit removed the **exact file** that was referenced in the Huntr disclosure:
 
-- **File removed:** `llama_index/core/download/dataset.py` (261 lines)
+- **File removed from source:** `llama_index/core/download/dataset.py` (261 lines) — but still present in the PyPI 0.14.20 wheel.
 - **Vulnerable functions removed:**
   - `download_llama_dataset()`
   - `download_dataset_and_source_files()`
@@ -300,7 +300,7 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
   2. The commit message contains **no security advisory**, no CVE, and no deprecation notice.
   3. No replacement API or migration path was provided.
   4. The underlying root cause — `SimpleKVStore.persist()` accepting unvalidated `persist_path` — was **not modified** in the same commit or any subsequent release.
-  5. The removal occurred **approximately one week after the disclosure was filed** (disclosure: March 27; commit: April 3), matching the classic "shadow patch" pattern.
+  5. The removal occurred **approximately one week after the disclosure was filed** (disclosure: March 27; commit: April 3). This timing is consistent with a “shadow patch” pattern, though intent cannot be definitively established from the public record.
 
 **Representative diff (forensic reconstruction):**
 
@@ -344,7 +344,7 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
 
 **Vendor Response:**
 - Classified the report as "N/A" (Not Applicable).
-- Closed the ticket without action. The `dataset.py` vector was incidentally removed during routine deprecation, while the core `SimpleKVStore` vulnerability was ignored, leaving it as an unpatched zero-day across all subsequent releases without public CVE assignment.
+- Closed the ticket without action. The `dataset.py` vector was removed from source, while the core `SimpleKVStore` vulnerability was ignored, leaving it as an unpatched zero-day across all subsequent releases without public CVE assignment.
 
 ---
 
@@ -371,6 +371,7 @@ The following scripts were uploaded to the project repository and utilized to ve
 
 #### **Appendix 2: Manual Remediation & Path Anchoring**
 Because no patched version of `llama-index-core` exists — v0.14.20 and v0.14.21+ still contain the unpatched `SimpleKVStore.persist()` sink — you **must** implement manual **Path Anchoring** regardless of your framework version.
+> **Note:** v0.14.20 also still contains dataset.py in the PyPI distribution, the RCE vector remains active in that version aswell.
 
 **Secure Implementation Pattern:**
 ```python
