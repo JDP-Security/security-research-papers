@@ -39,7 +39,7 @@ Two distinct vulnerable execution sinks exist within the framework:
 * **Remote Code Execution (RCE):** Writing executable Python commands into module initialization files (e.g., `site-packages/llama_index/core/__init__.py`) or system execution paths (e.g., `/etc/cron.d/`).
 * **Permanent Denial of Service (DoS):** Overwriting module initialization files with JSON serializations or malformed data, inducing immediate, unrecoverable Python interpreter import panics during application boot.
 
-Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. Forensic analysis of the repository’s git history subsequently revealed a silent code deletion: dataset.py was quietly removed from the source repository in v0.14.20 during a routine deprecation cleanup without a CVE assignment. However, the PyPI package for v0.14.20 was built before that commit and still ships the vulnerable file. Crucially, this undocumented update **failed to address the core `SimpleKVStore.persist()` traversal vulnerability**, leaving downstream enterprises in a false state of security.
+Despite comprehensive Proof of Concept (PoC) recordings demonstrating unauthenticated, LLM-driven host compromise, the maintainers initially disputed the disclosure, stating that environmental security boundaries are a user-side responsibility. Forensic analysis of the repository’s git history subsequently revealed a silent code deletion: `dataset.py` was quietly removed from the source repository in v0.14.20 during a routine deprecation cleanup without a CVE assignment. However, the PyPI package for v0.14.20 was built before that commit and still ships the vulnerable file. Crucially, this undocumented update **failed to address the core `SimpleKVStore.persist()` traversal vulnerability**, leaving downstream enterprises in a false state of security.
 
 This research highlights the risks associated with **undocumented remediation** in the open-source supply chain: where a vulnerability is mitigated under the guise of routine maintenance without formal disclosure. This practice leaves the community in a "False Negative" state, where security tools fail to alert on active threats because no official CVE has been filed, exposing enterprise deployments to unmitigated risk.
 
@@ -295,7 +295,7 @@ The commit message (`"remaining cleanup, uv lock bump"`) does not mention securi
   - `local_dir_path = Path(local_dir_path)` at line 64
   - `local_dir_path = Path(local_dir_path)` at line 137
   - `source_files_dir_path` used as an unanchored write destination
-- **Why this is security-relevant, not routine cleanup:**
+- **Why this commit is deserving of security scrutiny:**
   1. The removed file is the **same module cited in the Huntr report** (`download/dataset.py`).
   2. The commit message contains **no security advisory**, no CVE, and no deprecation notice.
   3. No replacement API or migration path was provided.
@@ -371,7 +371,7 @@ The following scripts were uploaded to the project repository and utilized to ve
 
 #### **Appendix 2: Manual Remediation & Path Anchoring**
 Because no patched version of `llama-index-core` exists — v0.14.20 and v0.14.21+ still contain the unpatched `SimpleKVStore.persist()` sink — you **must** implement manual **Path Anchoring** regardless of your framework version.
-> **Note:** v0.14.20 also still contains dataset.py in the PyPI distribution, the RCE vector remains active in that version aswell.
+> **Note:** v0.14.20 also still contains `dataset.py` in the PyPI distribution, so the RCE vector remains active in that version as well.
 
 **Secure Implementation Pattern:**
 ```python
