@@ -11,7 +11,7 @@ title: LangChain-Core Insecure AI Orchestration Vulnerability
 ## **Architectural Boundary Failures: A Deep Dive into the LangChain-Core Insecure AI Orchestration Vulnerability**
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security  
-**Series:** JDP Security Research Series (Disclosure #4)  
+**Series:** JDP Security AI Orchestration Research Series - 2026 (Disclosure #4)  
 **Initial Disclosure Date:** March 17, 2026  
 **Final Revision Date:** May 8, 2026 (Updated August 21, 2026)  
 **Target:** LangChain | `langchain-core` (Verified through latest release)  
