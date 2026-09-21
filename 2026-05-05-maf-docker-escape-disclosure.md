@@ -15,7 +15,7 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
 ## **Infrastructure Breach: Container Privilege Escalation via Insecure AI Orchestration**
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security Research Series    
-**Series:** JDP Security Research Series (Disclosure #2)    
+**Series:** JDP Security AI Orchestration Research Series - 2026 (Disclosure #2)    
 **Initial Documentation Date:** April 8, 2026    
 **Target:** Microsoft Agent Framework (v1.0.0) | `claude-agent-sdk` (v0.1.48)    
 **Case Number:** MSRC VULN-181659 (MSRC 112751)    
