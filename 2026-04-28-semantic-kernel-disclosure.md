@@ -15,7 +15,7 @@ title: "Architectural Vulnerabilities in AI Orchestration: A Semantic Kernel Cas
 ## The Orchestration Trust Gap: Remediation Evasions in Microsoft Semantic Kernel and Agent Framework 1.0
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Security Researcher, JDP-Security  
-**Series:** JDP Security Research Series (Disclosure #1)  
+**Series:** JDP Security AI Orchestration Research Series - 2026 (Disclosure #1)  
 **Date:** April 25, 2026  
 **Classification:** Public Research Disclosure  
 **Target:** Microsoft Semantic Kernel (.NET) v1.47.0 - v1.48.0, Agent Framework 1.0  
