@@ -14,7 +14,7 @@ title: Threat Modeling in AI Orchestration - Serialization Boundary Evasion in H
 # **SECURITY ADVISORY | JDP-2026-005**
 ## **Architectural Boundary Limitations: RCE via Serialization Bypass and Persistent Framework Compromise in Haystack**
 
-**Research Series:** JDP Security Research Series (Disclosure #5)    
+**Research Series:** JDP Security AI Orchestration Research Series - 2026 (Disclosure #5)    
 **Researcher:** Jeff Ponte (CISSP, CCSP, CEH) | Lead Researcher, JDP Security    
 **Target:** Deepset Haystack (`haystack-ai`)    
 **Affected Versions:** **All versions supporting the `unsafe` feature (Including Current Releases)** **Proposed Taxonomy:** **AISEC-01: Insecure AI Orchestration (Framework Integrity Compromise)** **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`    
