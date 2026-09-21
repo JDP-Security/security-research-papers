@@ -23,7 +23,7 @@ title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
 ## **Infrastructure Compromise: Path Traversal to Arbitrary File Write and Code Injection in LlamaIndex — Insecure AI Orchestration**
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security  
-**Series:** JDP Security Research Series (Disclosure #3)  
+**Series:** JDP Security AI Orchestration Research Series - 2026 (Disclosure #3)  
 **Initial Disclosure Date:** March 27, 2026  
 **Target:** LlamaIndex | `llama-index-core` (v0.14.19 through v0.14.21+)  
 **Case Number:** [Huntr ID: bb0b2efb-8069-4642-97ec-7060aed7a7b7](https://huntr.com/repos/run-llama/llama_index) (Report marked ‘N/A’ by vendor - requires Huntr account to view details)  
