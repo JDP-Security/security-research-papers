@@ -12,7 +12,7 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
 ---
 
 # **WHITE PAPER | JDP-2026-002**
-## **Infrastructure Breach: Container Privilege Escalation via Insecure AI Orchestration**
+## **Infrastructure Breach: Container Privilege Escalation via Insecure AI Orchestration in Microsoft Agent Framework**
 
 **Author:** Jeff Ponte, CISSP, CCSP, CEH | Lead Researcher, JDP Security Research Series    
 **Series:** JDP Security AI Orchestration Research Series - 2026 (Disclosure #2)    
