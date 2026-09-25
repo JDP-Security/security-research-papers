@@ -23,6 +23,8 @@ title: "Architectural Vulnerabilities in AI Orchestration: A Semantic Kernel Cas
 **Vector:** `AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
 **CWE Chain:** CWE-1039 → CWE-22 → CWE-94  
 
+**Interactive Laboratory:** [OWASP GenAI Red Team Lab](https://github.com/GenAI-Security-Project/GenAI-Red-Team-Lab/blob/main/exploitation/semantickernel/README.md) *(Hands-on exercise based on this research)*
+
 ---
 
 ## Executive Summary
