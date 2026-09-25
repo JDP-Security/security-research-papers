@@ -30,6 +30,8 @@ title: LlamaIndex - Path Traversal to Arbitrary File Write and RCE
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
 **Status:** Officially Disputed / **Unpatched Zero-Day** (`dataset.py` removed from source in v0.14.20, but PyPI 0.14.20 still ships with `dataset.py` — actual PyPI removal in v0.14.21; `SimpleKVStore` persistence vector remains unpatched in ALL versions)  
 
+**Interactive Laboratory:** [OWASP GenAI Red Team Lab](https://github.com/GenAI-Security-Project/GenAI-Red-Team-Lab/blob/main/exploitation/llamaindex/README.md) *(Hands-on exercise based on this research)*
+
 ---
 
 ### **Executive Summary**
