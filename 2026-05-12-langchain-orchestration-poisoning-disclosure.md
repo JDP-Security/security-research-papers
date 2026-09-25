@@ -20,6 +20,8 @@ title: LangChain-Core Insecure AI Orchestration Vulnerability
 **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`  
 **Status:** Incomplete Remediation / Undocumented Mitigation (Read‑side symlink bypass remains exploitable; Write‑side exposed in all versions through latest)
 
+**Interactive Laboratory:** [OWASP GenAI Red Team Lab](https://github.com/GenAI-Security-Project/GenAI-Red-Team-Lab/blob/main/exploitation/langchain/README.md) *(Hands-on exercise based on this research)*
+
 **Key Points**
 * **Vulnerability:** Critical Remote Code Execution (RCE) in LangChain‑core via symlink traversal in the `save()` method.
 * **Impact:** Attackers can overwrite framework source code, leading to persistent framework integrity compromise ("AI Orchestration Poisoning").
