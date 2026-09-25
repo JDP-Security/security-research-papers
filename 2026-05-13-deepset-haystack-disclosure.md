@@ -18,7 +18,11 @@ title: Threat Modeling in AI Orchestration - Serialization Boundary Evasion in H
 **Researcher:** Jeff Ponte (CISSP, CCSP, CEH) | Lead Researcher, JDP Security    
 **Target:** Deepset Haystack (`haystack-ai`)    
 **Affected Versions:** **All versions supporting the `unsafe` feature (Including Current Releases)** **Proposed Taxonomy:** **AISEC-01: Insecure AI Orchestration (Framework Integrity Compromise)** **CVSS v3.1 Score:** **10.0 (Critical)** | **Vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H`    
-**Status:** **Vendor Classification: Accepted Risk / Intended Behavior (Unmitigated)** ---
+**Status:** **Vendor Classification: Accepted Risk / Intended Behavior (Unmitigated)** 
+
+**Interactive Laboratory:** [OWASP GenAI Red Team Lab](https://github.com/GenAI-Security-Project/GenAI-Red-Team-Lab/blob/main/exploitation/haystack/README.md) *(Hands-on exercise based on this research)*
+
+---
 
 **Executive Highlights:**
 - **Vulnerability**: A serialization validation oversight allows untrusted payloads to mutate the `unsafe=False` boundary to `unsafe=True`.
