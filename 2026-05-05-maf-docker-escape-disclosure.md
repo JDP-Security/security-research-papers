@@ -106,7 +106,7 @@ This architectural pattern maps directly to established vulnerabilities within t
 The following timeline illustrates the gap between formal vulnerability management and the reality of architectural enterprise risk.
 
 * **April 8, 2026:** **Initial Disclosure** submitted to MSRC (VULN-181659) detailing the container escape methodology.
-* **April 16, 2026:** **Vendor Advisory** – Microsoft publishes an engineering blog post identifying Docker socket mounting as a serious security risk that permits sandbox escape.
+* **April 16, 2026:** **Vendor Advisory** – Microsoft publishes an engineering blog post identifying Docker socket mounting as a serious security risk that permits sandbox escape.  [Best of Both Worlds for Agentic Refactoring: GitHub Copilot + MicroVMs via Docker Sandbox](https://devblogs.microsoft.com/all-things-azure/best-of-both-worlds-for-agentic-refactoring-github-copilot-microvms-via-docker-sandbox/)
 * **April 17, 2026:** **Case Closure** – MSRC officially categorizes the framework's behavior as not meeting the requirement for a security servicing patch, establishing it as intended behavior requiring user-side mitigation.
 
 ---
