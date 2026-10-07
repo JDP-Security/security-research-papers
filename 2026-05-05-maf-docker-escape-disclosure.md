@@ -10,7 +10,7 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
 
 &nbsp;
 
-> **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design natively facilitates mounting the host Docker socket into the AI agent container when detected. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **JDPEnterpriseSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise. **Platform Engineering and DevSecOps teams must override baseline configurations and enforce these controls.**
+> **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design permits permissive configuration of host Docker socket access into the AI agent container. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **JDPEnterpriseSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise. **Platform Engineering and DevSecOps teams must override baseline configurations and enforce these controls.**
 
 ---
 
@@ -28,7 +28,7 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
 ---
 
 ### **Executive Summary**
-This white paper documents a critical architectural vulnerability pattern—container privilege escalation—demonstrated within the **Microsoft Agent Framework (MAF)**. Analysis of the framework reveals a structural trust gap where the core dependency (`claude-agent-sdk`) explicitly allow-lists and facilitates the mounting of the host’s Docker socket (`/var/run/docker.sock`) into agent containers upon detection.
+This white paper documents a critical architectural vulnerability pattern—container privilege escalation—demonstrated within the **Microsoft Agent Framework (MAF)**. Analysis of the framework reveals a structural trust gap where the core dependency (`claude-agent-sdk`) explicitly allow-lists and permits configuration of the host’s Docker socket (`/var/run/docker.sock`) into agent containers.
 
 This design represents a textbook example of **Insecure AI Orchestration**. When container environments expose this socket via permissive sandbox configurations, any process within the container—including code generated dynamically by a Large Language Model (LLM)—can interact directly with the host Docker daemon. This grants immediate, root-level host access, bypassing container sandboxing.
 
@@ -45,7 +45,7 @@ Because this behavior is currently classified by the vendor's servicing criteria
 ### **1. Core Architecture: Insecure Defaults**
 The security risk stems from a deliberate architectural choice that prioritizes execution convenience over infrastructure isolation. The framework operates on a model of **Implicit Facilitation**. 
 
-#### **1.1 The Permissive Logic (Auto-Facilitated Mounting)**
+#### **1.1 Permissive Configuration: Socket Allow-Listing**
 The framework establishes a permissive bridge to host privileges via its `SandboxSettings` configuration. In the `claude-agent-sdk`, socket permissions are explicitly mapped and facilitated through the `allowUnixSockets` parameter:
 
 ```python
@@ -93,6 +93,8 @@ MAF grants LLMs the functional capability to interact with the operating system 
 | **Availability (A)** | **High** | Total control to terminate host processes or delete infrastructure. |
 
 > **Assumption:** `PR:N` assumes the LLM chat/API is reachable without authentication. If authentication is enforced, `PR:L` applies and the base score becomes **9.9 (Critical)**. The vulnerability remains critical in either case.
+
+> **Precondition:** This score assumes the agent container is deployed with the Docker socket mounted (a common but not default configuration). If the socket is not mounted, the attack is not possible.
 
 **CVSS Vector Strings:**
 - **Unauthenticated (`PR:N`):** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H` **(10.0)**
@@ -170,6 +172,8 @@ curl -s --unix-socket /var/run/docker.sock -X POST \
   -d '{"Detach":false,"Tty":true}' \
   http://localhost/exec/$EXEC_ID/start
 ```
+
+> **Note:** Option B demonstrates the API calls required to create and start an exec instance programmatically. To obtain an interactive shell, the client must attach to the exec stream using a WebSocket or raw Unix socket with TTY allocation. A standard `curl` command will not provide an interactive terminal. This option is shown for completeness; in practice, an attacker would use a script or tool that handles the stream.
 
 **Step 4 – Access the host:**
 ```bash
@@ -263,7 +267,7 @@ network_config = {
 ---
 
 ### **Conclusion**
-When an AI framework’s default architecture implicitly facilitates host compromise, it reveals a critical misalignment between traditional vulnerability classification and modern agentic orchestration. The JDP Security Research Series submits these findings to the broader security community to highlight how architectural intent can bypass SCA visibility, establishing the urgent need for robust, defense-in-depth strategies when deploying autonomous AI agents. Organizations must treat the Docker socket as a root-equivalent credential and enforce strict isolation, because the framework’s default behavior provides a direct path from LLM output to host compromise.
+When an AI framework’s architecture permits permissive socket configurations that facilitate host compromise, it reveals a critical misalignment between traditional vulnerability classification and modern agentic orchestration. The JDP Security Research Series submits these findings to the broader security community to highlight how architectural intent can bypass SCA visibility, establishing the urgent need for robust, defense-in-depth strategies when deploying autonomous AI agents. Organizations must treat the Docker socket as a root-equivalent credential and enforce strict isolation, because the framework’s permissive configuration provides a direct path from LLM output to host compromise.
 
 ---
 
