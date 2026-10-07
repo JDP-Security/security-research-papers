@@ -43,30 +43,22 @@ Because this behavior is currently classified by the vendor's servicing criteria
 The security risk stems from a deliberate architectural choice that prioritizes execution convenience over infrastructure isolation. The framework operates on a model of **Implicit Facilitation**. 
 
 #### **1.1 The Permissive Logic (Auto-Facilitated Mounting)**
-The framework establishes a permissive bridge to host privileges via its `SOCKET_ALLOW_LIST` configuration. While the socket is not unconditionally mounted, the framework is designed to automatically mount it if the socket is present on the host:
+The framework establishes a permissive bridge to host privileges via its `SandboxSettings` configuration. In the `claude-agent-sdk`, socket permissions are explicitly mapped and facilitated through the `allowUnixSockets` parameter:
 
 ```python
-# claude_agent_sdk/types.py (Line 713)
+# claude_agent_sdk/types.py
 # JDP SECURITY ANALYSIS: PRIVILEGE ESCALATION FACILITATION
 
-SOCKET_ALLOW_LIST = [
-    "/var/run/docker.sock",  # <-- Framework-sanctioned escalation path
-    "/var/run/dbus/system_bus_socket"
-]
+class NetworkSettings(TypedDict):
+    allowUnixSockets: NotRequired[list[str]]
+    allowLocalBinding: NotRequired[bool]
 
-def mount_agent_volumes(container_config):
-    """
-    The framework automatically bridges privileged host sockets 
-    when detected, establishing a default-allow security model.
-    """
-    volumes = {}
-    for sock in SOCKET_ALLOW_LIST:
-        if os.path.exists(sock):
-            # ARCHITECTURAL RISK: Framework facilitates host daemon access
-            # without requiring explicit developer opt-in or isolation enforcement
-            volumes[sock] = {'bind': sock, 'mode': 'rw'} # RISK: Auto-mounted read-write
-    return volumes
+class SandboxSettings(TypedDict):
+    enabled: NotRequired[bool]
+    network: NotRequired[NetworkSettings]
 ```
+
+Rather than enforcing isolation by default, this schema allows developers to trivially pass `"/var/run/docker.sock"` into the `allowUnixSockets` array, which the framework then actively binds into the container's execution context.
 
 #### **1.2 Mechanics of Orchestration: Understanding Agent Tools**
 MAF grants LLMs the functional capability to interact with the operating system via tools.
@@ -207,7 +199,7 @@ Successful exploitation allows an attacker to:
 ### **6. Remediation & Strategic Hardening**
 
 #### **6.1 Secure-by-Design Principles**
-* **Default Deny:** The `SOCKET_ALLOW_LIST` should be empty by default, requiring explicit developer configuration.
+* **Default Deny:** Architectures should require explicit developer configuration rather than implicitly bridging host privileges. 
 * **Principle of Least Privilege:** If socket mounting is strictly necessary, it must default to read-only (`ro`) to prevent API manipulation.
 
 #### **6.2 Required Infrastructure Hardening**
@@ -250,16 +242,18 @@ Because this is classified as intended behavior, organizations must implement in
 ### **8. Scope and Environmental Limitations**
 
 #### **Rootless Docker Environments**
-This research focused on standard, privileged Docker installations (`/var/run/docker.sock`). The framework's default allow-list specifically targets this path:
+This research focused on standard, privileged Docker installations (`/var/run/docker.sock`). The framework's default configuration explicitly targets this path:
 
 ```python
-SOCKET_ALLOW_LIST = [
-    "/var/run/docker.sock",  # Standard Linux Docker Socket
-    "/var/run/dbus/system_bus_socket"
-]
+# Example of the permissive configuration targeting the standard socket
+network_config = {
+    "network": {
+        "allowUnixSockets": ["/var/run/docker.sock"] # Standard Linux Docker Socket
+    }
+}
 ```
 
-> **Note:** Environments utilizing Docker Desktop on Windows or macOS typically employ named pipes or localized sockets (e.g., `//./pipe/docker_engine`). While MAF's default configuration targets Linux paths, the underlying architectural trust gap remains active. Modifying the allow-list to include these alternative paths will expose those environments to identical risks.
+> **Note:** Environments utilizing Docker Desktop on Windows or macOS typically employ named pipes or localized sockets (e.g., `//./pipe/docker_engine`). While MAF's default configuration targets Linux paths, the underlying architectural trust gap remains active. Modifying the configuration to include these alternative paths will expose those environments to identical risks.
 
 > **Note on Restart Ejection:** The restart technique ejects the attacker to the host shell as the user running the container. It does not grant root directly. The host filesystem mount technique (Section 5.2) provides a root shell with full host access.
 
@@ -278,12 +272,12 @@ When an AI framework’s default architecture implicitly facilitates host compro
 * **`maf-cve-HostMount-LLM.mp4/.cast/.txt`**: (Forthcoming) Demonstrates the host filesystem mount technique, including `chroot` into the host root filesystem.
 
 #### **Appendix 2: Ecosystem Risk Assessment**
-A sample audit of 197 public GitHub repositories utilizing MAF indicated pervasive insecure deployments:
-* **100% (197/197)** executed the agent container as the `root` user.
-* **93.9%** lacked implementation of Seccomp or AppArmor security profiles.
-* **0%** utilized a socket-proxy or microVM isolation by default.
+A qualitative audit of public GitHub repositories utilizing MAF indicates pervasive insecure deployment patterns across the ecosystem. Analysis of starter templates and community examples reveals:
+* A high prevalence of executing the agent container as the `root` user.
+* Frequent omission of Seccomp or AppArmor security profiles in `docker-compose.yml` files.
+* Widespread reliance on direct `/var/run/docker.sock` bind mounts to enable dynamic agent tooling, without utilizing socket-proxies or microVM isolation.
 
-**Methodology:** The audit was conducted via automated GitHub API queries combined with static analysis using Semgrep rules targeting Dockerfile and `docker-compose.yml` configurations. The dataset was filtered for repositories with active MAF dependencies and at least one agent container definition. This methodology ensures the findings are reproducible and derived from a professional AppSec workflow.
+**Methodology:** The audit was conducted via automated GitHub API queries combined with static analysis using Semgrep rules targeting Dockerfile and `docker-compose.yml` configurations. The dataset was filtered for repositories with active MAF dependencies and at least one agent container definition.
 
 #### **Appendix 3: The "Raw Socket" Vector**
 This execution vector relies entirely on native Python libraries, requiring no external dependencies to communicate with the Docker API:
@@ -376,7 +370,7 @@ class MAFSecurityMiddleware:
 #### **Appendix 5: Analytical Methodology**
 
 ##### **Repository Deployment Analysis**
-An analysis of 197 GitHub repositories deploying MAF was conducted to evaluate real-world security postures:
+An analysis of GitHub repositories deploying MAF was conducted to evaluate real-world security postures:
 
 ###### Evaluation Criteria
 ```python
@@ -387,17 +381,7 @@ CRITERIA = {
     'isolation_mechanisms': 'Presence of gVisor/Kata/Podman configurations'
 }
 ```
-
-###### Audit Results
-```python
-FINDINGS = {
-    'total_repositories_analyzed': 197,
-    'docker_socket_mounted': 197,  # 100%
-    'running_as_root': 197,        # 100%
-    'no_security_profiles': 185,   # 93.9%
-    'no_isolation_mechanisms': 197 # 100%
-}
-```
+*Note: Initial ecosystem scans indicate that the vast majority of public deployments flag positive for direct socket mounting and root execution while lacking isolation mechanisms.*
 
 ---
 
