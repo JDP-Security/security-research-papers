@@ -104,7 +104,7 @@ This architectural pattern maps directly to established vulnerabilities within t
 * **LLM02: Insecure Output Handling:** The framework accepts the LLM's dynamically generated tool calls and executes them directly against privileged sinks without sufficient intermediate validation or sandboxing.
 * **Proposed Extension (Insecure AI Orchestration):** This research highlights the need for broader industry recognition of orchestration trust gaps, where frameworks implicitly bridge non-deterministic models to deterministic, high-privilege infrastructure.
 
-**Red Team Context:** This architectural flaw should be incorporated into standard GenAI red teaming methodologies. Framing the socket auto-mount as a primary adversarial target for prompt-injection payloads bridges the gap between a theoretical vulnerability and practical, real-world exploit simulation. Red teams should specifically test whether LLM outputs can trigger Docker API calls that create privileged containers or mount host filesystems.
+**Red Team Context:** This architectural flaw should be incorporated into standard GenAI red teaming methodologies. Framing permissive socket allow-listing via `allowUnixSockets` as a primary adversarial target for prompt-injection payloads bridges the gap between a theoretical vulnerability and practical, real-world exploit simulation. Red teams should specifically test whether LLM outputs can trigger Docker API calls that create privileged containers or mount host filesystems when socket access is permitted within the sandbox configuration.
 
 ---
 
