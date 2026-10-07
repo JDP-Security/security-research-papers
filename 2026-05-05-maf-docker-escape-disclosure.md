@@ -27,7 +27,7 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
 ### **Executive Summary**
 This white paper documents a critical architectural vulnerability pattern—container privilege escalation—demonstrated within the **Microsoft Agent Framework (MAF)**. Analysis of the framework reveals a structural trust gap where the core dependency (`claude-agent-sdk`) explicitly allow-lists and facilitates the mounting of the host’s Docker socket (`/var/run/docker.sock`) into agent containers upon detection.
 
-This design represents a textbook example of **Insecure AI Orchestration**. By deploying containers with this socket mounted by default, any process within the container—including those generated dynamically by a Large Language Model (LLM)—can interact directly with the host Docker daemon. This grants immediate, root-level host access, bypassing container sandboxing.
+This design represents a textbook example of **Insecure AI Orchestration**. When container environments expose this socket via permissive sandbox configurations, any process within the container—including code generated dynamically by a Large Language Model (LLM)—can interact directly with the host Docker daemon. This grants immediate, root-level host access, bypassing container sandboxing.
 
 This paper documents two distinct exploitation techniques:
 1. **Restart Ejection** – a DoS primitive that terminates the container and ejects the attacker to the host shell.
