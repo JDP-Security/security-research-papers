@@ -8,6 +8,8 @@ title: "Architectural Vulnerabilities in Agentic Frameworks: Microsoft Agent Fra
   <a href="https://jdp-security.github.io/security-research-papers/" style="background: #2f3e56; color: #ffffff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.9em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border: 1px solid #425573; transition: background 0.2s;" onmouseover="this.style.background='#3d5171'" onmouseout="this.style.background='#2f3e56'">⬅️ Back to Vulnerability Disclosures & Technical White Papers</a>
 </div>
 
+&nbsp;
+
 > **⚠️ SECURITY ADVISORY:** Organizations deploying the **Microsoft Agent Framework (MAF) v1.0.0** may be operating with an active container escape path. The framework’s architectural design natively facilitates mounting the host Docker socket into the AI agent container when detected. Because the vendor classifies this behavior as intended functionality rather than a serviceable vulnerability, standard vulnerability scanners will not flag this risk. Organizations are advised to manually enforce socket isolation or implement pre-execution validation, such as the **JDPEnterpriseSecurityFilter (Appendix 4)**, to mitigate the risk of LLM-driven host compromise. **Platform Engineering and DevSecOps teams must override baseline configurations and enforce these controls.**
 
 ---
