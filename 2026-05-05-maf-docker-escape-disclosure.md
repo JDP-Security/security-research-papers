@@ -242,7 +242,7 @@ Because this is classified as intended behavior, organizations must implement in
 ### **8. Scope and Environmental Limitations**
 
 #### **Rootless Docker Environments**
-This research focused on standard, privileged Docker installations (`/var/run/docker.sock`). The framework's default configuration explicitly targets this path:
+This research focused on standard, privileged Docker installations (`/var/run/docker.sock`). Common sample configurations and starter templates explicitly target this path:
 
 ```python
 # Example of the permissive configuration targeting the standard socket
