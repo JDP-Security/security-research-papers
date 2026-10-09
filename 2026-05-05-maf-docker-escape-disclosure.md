@@ -395,6 +395,7 @@ CRITERIA = {
 #### Appendix 6: Execution Demonstrations
 
 This section provides visual artifacts confirming the container escape methodology when orchestrated via the Microsoft Agent Framework.
+> **Note on Lab Setup & Model Independence:** While the framework's core configuration dependency is named `claude-agent-sdk`, the vulnerability exists entirely at the container orchestration layer. The `claude-agent-sdk` dependency is responsible for parsing the permissive `allowUnixSockets` configuration, which exposes `/var/run/docker.sock` inside the container. Because this exposes the host Docker daemon directly to the containerized environment, the exploit is model-agnostic. For the lab demonstrations recorded below, a local Ollama instance (Llama 3.2) was utilized to ensure offline reproducibility and avoid API rate limits, demonstrating that any model (or automated script) operating within the flawed sandbox can execute the escape.
 
 ---
 
